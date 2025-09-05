@@ -1,1 +1,264 @@
-<p>settings works!</p>
+<div class="settings-container">
+  <div class="header">
+    <h1>Settings</h1>
+    <p>Manage your account settings and preferences</p>
+  </div>
+
+  <mat-tab-group [(selectedIndex)]="selectedTab" class="settings-tabs">
+    <!-- Profile Tab -->
+    <mat-tab label="Profile">
+      <div class="tab-content">
+        <mat-card class="settings-card">
+          <mat-card-header>
+            <div mat-card-avatar class="profile-avatar">
+              <mat-icon>person</mat-icon>
+            </div>
+            <mat-card-title>Profile Information</mat-card-title>
+            <mat-card-subtitle>Update your personal information</mat-card-subtitle>
+          </mat-card-header>
+          
+          <mat-card-content>
+            <div class="form-group">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Full Name</mat-label>
+                <input matInput [(ngModel)]="profileForm.name" placeholder="Enter your full name">
+              </mat-form-field>
+              
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Email Address</mat-label>
+                <input matInput [(ngModel)]="profileForm.email" type="email" placeholder="Enter your email">
+              </mat-form-field>
+              
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Profile Picture URL</mat-label>
+                <input matInput [(ngModel)]="profileForm.picture" placeholder="Enter profile picture URL">
+              </mat-form-field>
+            </div>
+          </mat-card-content>
+          
+          <mat-card-actions>
+            <button mat-raised-button color="primary" (click)="saveProfile()">
+              <mat-icon>save</mat-icon>
+              <span>Save Changes</span>
+            </button>
+          </mat-card-actions>
+        </mat-card>
+      </div>
+    </mat-tab>
+
+    <!-- Notifications Tab -->
+    <mat-tab label="Notifications">
+      <div class="tab-content">
+        <mat-card class="settings-card">
+          <mat-card-header>
+            <mat-card-title>Notification Preferences</mat-card-title>
+            <mat-card-subtitle>Choose how you want to be notified</mat-card-subtitle>
+          </mat-card-header>
+          
+          <mat-card-content>
+            <div class="setting-item">
+              <div class="setting-info">
+                <h4>Email Notifications</h4>
+                <p>Receive notifications via email</p>
+              </div>
+              <mat-slide-toggle [(ngModel)]="notificationSettings.emailNotifications"></mat-slide-toggle>
+            </div>
+            
+            <div class="setting-item">
+              <div class="setting-info">
+                <h4>Meeting Reminders</h4>
+                <p>Get reminded before meetings</p>
+              </div>
+              <mat-slide-toggle [(ngModel)]="notificationSettings.meetingReminders"></mat-slide-toggle>
+            </div>
+            
+            <div class="setting-item">
+              <div class="setting-info">
+                <h4>Content Generated</h4>
+                <p>Notify when content is generated</p>
+              </div>
+              <mat-slide-toggle [(ngModel)]="notificationSettings.contentGenerated"></mat-slide-toggle>
+            </div>
+            
+            <div class="setting-item">
+              <div class="setting-info">
+                <h4>Weekly Digest</h4>
+                <p>Receive weekly summary emails</p>
+              </div>
+              <mat-slide-toggle [(ngModel)]="notificationSettings.weeklyDigest"></mat-slide-toggle>
+            </div>
+          </mat-card-content>
+          
+          <mat-card-actions>
+            <button mat-raised-button color="primary" (click)="saveNotifications()">
+              <mat-icon>save</mat-icon>
+              <span>Save Settings</span>
+            </button>
+          </mat-card-actions>
+        </mat-card>
+      </div>
+    </mat-tab>
+
+    <!-- Integrations Tab -->
+    <mat-tab label="Integrations">
+      <div class="tab-content">
+        <mat-card class="settings-card">
+          <mat-card-header>
+            <mat-card-title>Connected Services</mat-card-title>
+            <mat-card-subtitle>Manage your third-party integrations</mat-card-subtitle>
+          </mat-card-header>
+          
+          <mat-card-content>
+            <div class="integration-item">
+              <div class="integration-info">
+                <mat-icon>event</mat-icon>
+                <div>
+                  <h4>Google Calendar</h4>
+                  <p>Sync meetings and events</p>
+                </div>
+              </div>
+              <div class="integration-actions">
+                <mat-slide-toggle [(ngModel)]="integrationSettings.googleCalendar"></mat-slide-toggle>
+                <button mat-button (click)="connectGoogleCalendar()">
+                  <mat-icon>settings</mat-icon>
+                  <span>Configure</span>
+                </button>
+              </div>
+            </div>
+            
+            <div class="integration-item">
+              <div class="integration-info">
+                <mat-icon>work</mat-icon>
+                <div>
+                  <h4>LinkedIn</h4>
+                  <p>Share content on LinkedIn</p>
+                </div>
+              </div>
+              <div class="integration-actions">
+                <mat-slide-toggle [(ngModel)]="integrationSettings.linkedin"></mat-slide-toggle>
+                <button mat-button (click)="connectLinkedIn()">
+                  <mat-icon>link</mat-icon>
+                  <span>Connect</span>
+                </button>
+              </div>
+            </div>
+            
+            <div class="integration-item">
+              <div class="integration-info">
+                <mat-icon>facebook</mat-icon>
+                <div>
+                  <h4>Facebook</h4>
+                  <p>Share content on Facebook</p>
+                </div>
+              </div>
+              <div class="integration-actions">
+                <mat-slide-toggle [(ngModel)]="integrationSettings.facebook"></mat-slide-toggle>
+                <button mat-button (click)="connectFacebook()">
+                  <mat-icon>link</mat-icon>
+                  <span>Connect</span>
+                </button>
+              </div>
+            </div>
+            
+            <div class="integration-item">
+              <div class="integration-info">
+                <mat-icon>record_voice_over</mat-icon>
+                <div>
+                  <h4>Recall.ai</h4>
+                  <p>Automatic meeting transcription</p>
+                </div>
+              </div>
+              <div class="integration-actions">
+                <mat-slide-toggle [(ngModel)]="integrationSettings.recallAi"></mat-slide-toggle>
+                <button mat-button (click)="connectRecallAi()">
+                  <mat-icon>link</mat-icon>
+                  <span>Connect</span>
+                </button>
+              </div>
+            </div>
+          </mat-card-content>
+          
+          <mat-card-actions>
+            <button mat-raised-button color="primary" (click)="saveIntegrations()">
+              <mat-icon>save</mat-icon>
+              <span>Save Settings</span>
+            </button>
+          </mat-card-actions>
+        </mat-card>
+      </div>
+    </mat-tab>
+
+    <!-- Privacy Tab -->
+    <mat-tab label="Privacy">
+      <div class="tab-content">
+        <mat-card class="settings-card">
+          <mat-card-header>
+            <mat-card-title>Privacy & Security</mat-card-title>
+            <mat-card-subtitle>Control your data and privacy settings</mat-card-subtitle>
+          </mat-card-header>
+          
+          <mat-card-content>
+            <div class="setting-item">
+              <div class="setting-info">
+                <h4>Data Retention</h4>
+                <p>How long to keep your meeting data</p>
+              </div>
+              <mat-form-field appearance="outline">
+                <mat-label>Retention Period</mat-label>
+                <mat-select [(ngModel)]="privacySettings.dataRetention">
+                  <mat-option value="30days">30 Days</mat-option>
+                  <mat-option value="6months">6 Months</mat-option>
+                  <mat-option value="1year">1 Year</mat-option>
+                  <mat-option value="forever">Forever</mat-option>
+                </mat-select>
+              </mat-form-field>
+            </div>
+            
+            <div class="setting-item">
+              <div class="setting-info">
+                <h4>Share Analytics</h4>
+                <p>Help improve the product by sharing usage data</p>
+              </div>
+              <mat-slide-toggle [(ngModel)]="privacySettings.shareAnalytics"></mat-slide-toggle>
+            </div>
+            
+            <div class="setting-item">
+              <div class="setting-info">
+                <h4>Marketing Communications</h4>
+                <p>Receive product updates and marketing emails</p>
+              </div>
+              <mat-slide-toggle [(ngModel)]="privacySettings.allowMarketing"></mat-slide-toggle>
+            </div>
+          </mat-card-content>
+          
+          <mat-card-actions>
+            <button mat-raised-button color="primary" (click)="savePrivacy()">
+              <mat-icon>save</mat-icon>
+              <span>Save Settings</span>
+            </button>
+          </mat-card-actions>
+        </mat-card>
+        
+        <mat-card class="settings-card danger-zone">
+          <mat-card-header>
+            <mat-card-title>Danger Zone</mat-card-title>
+            <mat-card-subtitle>Irreversible actions</mat-card-subtitle>
+          </mat-card-header>
+          
+          <mat-card-content>
+            <div class="danger-item">
+              <div class="danger-info">
+                <h4>Sign Out</h4>
+                <p>Sign out of your account on this device</p>
+              </div>
+              <button mat-button color="warn" (click)="logout()">
+                <mat-icon>logout</mat-icon>
+                <span>Sign Out</span>
+              </button>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      </div>
+    </mat-tab>
+  </mat-tab-group>
+</div>

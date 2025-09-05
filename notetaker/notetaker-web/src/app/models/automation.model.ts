@@ -1,26 +1,22 @@
 export interface Automation {
   id: number;
   name: string;
-  platform: string;
   description: string;
-  exampleText?: string;
-  enabled: boolean;
+  prompt: string;
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface CreateAutomation {
+export interface CreateAutomationRequest {
   name: string;
-  platform: string;
   description: string;
-  exampleText?: string;
-  enabled: boolean;
+  prompt: string;
 }
 
-export interface UpdateAutomation {
-  name: string;
-  platform: string;
-  description: string;
-  exampleText?: string;
-  enabled: boolean;
+export interface UpdateAutomationRequest {
+  name?: string;
+  description?: string;
+  prompt?: string;
+  isActive?: boolean;
 }

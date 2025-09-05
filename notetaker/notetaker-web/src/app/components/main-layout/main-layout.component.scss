@@ -20,11 +20,14 @@
   font-size: 18px;
   letter-spacing: -0.5px;
   
-  mat-icon {
+  .header-icon {
     margin-right: 12px;
     font-size: 28px;
     width: 28px;
     height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 }
 
@@ -95,10 +98,13 @@ mat-nav-list {
       box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
     }
     
-    mat-icon {
+    .nav-icon {
       font-size: 20px;
       width: 20px;
       height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
   }
 }

@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
-import { Automation, CreateAutomation, UpdateAutomation } from '../models/automation.model';
+import { Automation, CreateAutomationRequest, UpdateAutomationRequest } from '../models/automation.model';
+import { ApiResponse } from '../models/api-response.model';
 
 @Injectable({
   providedIn: 'root'
@@ -17,28 +18,19 @@ export class AutomationService {
     return this.apiService.get<Automation>(`/automations/${id}`);
   }
 
-  createAutomation(automation: CreateAutomation): Observable<ApiResponse<Automation>> {
-    return this.apiService.post<Automation>('/automations', automation);
+  createAutomation(request: CreateAutomationRequest): Observable<ApiResponse<Automation>> {
+    return this.apiService.post<Automation>('/automations', request);
   }
 
-  updateAutomation(id: number, automation: UpdateAutomation): Observable<ApiResponse<Automation>> {
-    return this.apiService.put<Automation>(`/automations/${id}`, automation);
+  updateAutomation(id: number, request: UpdateAutomationRequest): Observable<ApiResponse<Automation>> {
+    return this.apiService.put<Automation>(`/automations/${id}`, request);
   }
 
-  deleteAutomation(id: number): Observable<ApiResponseVoid> {
-    return this.apiService.delete<ApiResponseVoid>(`/automations/${id}`);
+  deleteAutomation(id: number): Observable<ApiResponse<any>> {
+    return this.apiService.delete(`/automations/${id}`);
   }
-}
 
-interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  message?: string;
-  errors: string[];
-}
-
-interface ApiResponseVoid {
-  success: boolean;
-  message?: string;
-  errors: string[];
+  toggleAutomation(id: number, isActive: boolean): Observable<ApiResponse<Automation>> {
+    return this.apiService.put<Automation>(`/automations/${id}/toggle`, { isActive });
+  }
 }
