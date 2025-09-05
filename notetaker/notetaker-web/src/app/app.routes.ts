@@ -3,9 +3,9 @@ import { LoginComponent } from './pages/login/login.component';
 import { AuthCallbackComponent } from './pages/auth-callback/auth-callback.component';
 import { MainLayoutComponent } from './components/main-layout/main-layout.component';
 import { MeetingsComponent } from './pages/meetings/meetings';
-import { MeetingDetail } from './pages/meeting-detail/meeting-detail';
-import { Automations } from './pages/automations/automations';
-import { Settings } from './pages/settings/settings';
+import { MeetingDetailComponent } from './pages/meeting-detail/meeting-detail';
+import { AutomationsComponent } from './pages/automations/automations';
+import { SettingsComponent } from './pages/settings/settings';
 import { AuthGuard } from './guards/auth.guard';
 
 export const routes: Routes = [
@@ -18,9 +18,9 @@ export const routes: Routes = [
     canActivate: [AuthGuard],
     children: [
       { path: 'meetings', component: MeetingsComponent },
-      { path: 'meetings/:id', component: MeetingDetail },
-      { path: 'automations', component: Automations },
-      { path: 'settings', component: Settings }
+      { path: 'meetings/:id', component: MeetingDetailComponent },
+      { path: 'automations', component: AutomationsComponent },
+      { path: 'settings', component: SettingsComponent }
     ]
   },
   { path: '**', redirectTo: '/meetings' }

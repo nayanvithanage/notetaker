@@ -1,23 +1,23 @@
 <mat-sidenav-container class="sidenav-container">
   <mat-sidenav #drawer class="sidenav" mode="side" opened>
     <div class="sidenav-header">
-      <mat-icon>event_note</mat-icon>
+      <div class="header-icon">📝</div>
       <span>Notetaker</span>
     </div>
     
     <mat-nav-list>
       <a mat-list-item (click)="navigateTo('/meetings')">
-        <mat-icon matListItemIcon>event</mat-icon>
+        <div class="nav-icon">📅</div>
         <span matListItemTitle>Meetings</span>
       </a>
       
       <a mat-list-item (click)="navigateTo('/automations')">
-        <mat-icon matListItemIcon>auto_awesome</mat-icon>
+        <div class="nav-icon">⚡</div>
         <span matListItemTitle>Automations</span>
       </a>
       
       <a mat-list-item (click)="navigateTo('/settings')">
-        <mat-icon matListItemIcon>settings</mat-icon>
+        <div class="nav-icon">⚙️</div>
         <span matListItemTitle>Settings</span>
       </a>
     </mat-nav-list>

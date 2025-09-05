@@ -1,1 +1,239 @@
-<p>meeting-detail works!</p>
+<div class="meeting-detail-container" *ngIf="meeting">
+  <div class="header">
+    <button mat-icon-button (click)="goBack()" class="back-button">
+      <mat-icon>arrow_back</mat-icon>
+    </button>
+    <div class="header-content">
+      <h1>{{ meeting.title }}</h1>
+      <p>{{ meeting.description }}</p>
+    </div>
+    <div class="header-actions">
+      <button mat-raised-button color="primary" (click)="joinMeeting()" *ngIf="meeting.joinUrl">
+        <mat-icon>video_call</mat-icon>
+        <span>Join Meeting</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="meeting-info">
+    <mat-card class="info-card">
+      <mat-card-content>
+        <div class="info-grid">
+          <div class="info-item">
+            <mat-icon>schedule</mat-icon>
+            <div>
+              <h4>Start Time</h4>
+              <p>{{ meeting.startsAt | date:'medium' }}</p>
+            </div>
+          </div>
+          
+          <div class="info-item">
+            <mat-icon>schedule</mat-icon>
+            <div>
+              <h4>End Time</h4>
+              <p>{{ meeting.endsAt | date:'medium' }}</p>
+            </div>
+          </div>
+          
+          <div class="info-item">
+            <mat-icon>{{ getPlatformIcon(meeting.platform) }}</mat-icon>
+            <div>
+              <h4>Platform</h4>
+              <p>{{ meeting.platform }}</p>
+            </div>
+          </div>
+          
+          <div class="info-item">
+            <mat-icon>people</mat-icon>
+            <div>
+              <h4>Attendees</h4>
+              <p>{{ meeting.attendees.length }} participants</p>
+            </div>
+          </div>
+          
+          <div class="info-item">
+            <mat-icon>record_voice_over</mat-icon>
+            <div>
+              <h4>Notetaker</h4>
+              <mat-chip [color]="meeting.notetakerEnabled ? 'primary' : 'basic'" selected>
+                {{ meeting.notetakerEnabled ? 'Enabled' : 'Disabled' }}
+              </mat-chip>
+            </div>
+          </div>
+          
+          <div class="info-item">
+            <mat-icon>info</mat-icon>
+            <div>
+              <h4>Status</h4>
+              <mat-chip [color]="getStatusColor(meeting.status)" selected>
+                {{ meeting.status | titlecase }}
+              </mat-chip>
+            </div>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <mat-tab-group [(selectedIndex)]="selectedTab" class="content-tabs">
+    <!-- Transcript Tab -->
+    <mat-tab label="Transcript">
+      <div class="tab-content">
+        <mat-card class="content-card">
+          <mat-card-header>
+            <mat-card-title>Meeting Transcript</mat-card-title>
+            <mat-card-subtitle>AI-generated transcript from the meeting</mat-card-subtitle>
+          </mat-card-header>
+          
+          <mat-card-content>
+            <div class="transcript-content">
+              <p><strong>John Doe:</strong> Good morning everyone, let's start with our weekly standup. I'll go first.</p>
+              <p><strong>John Doe:</strong> Last week I completed the API integration for the new feature. Everything is working as expected and I've written comprehensive tests.</p>
+              <p><strong>Jane Smith:</strong> Great work John! I've been working on the UI components and they're ready for integration with your API.</p>
+              <p><strong>Bob Wilson:</strong> I've been reviewing the client feedback from the beta testing. Most of it is positive, but there are a few UI improvements they'd like to see.</p>
+              <p><strong>John Doe:</strong> What specific improvements are they requesting?</p>
+              <p><strong>Bob Wilson:</strong> Mainly around the dashboard layout and some color scheme adjustments. I've prepared a list of changes.</p>
+              <p><strong>Jane Smith:</strong> I can take care of those UI updates. Should we prioritize them for the next sprint?</p>
+              <p><strong>John Doe:</strong> Yes, let's add them to the backlog and discuss in our sprint planning meeting.</p>
+              <p><strong>Bob Wilson:</strong> Sounds good. Also, the client wants to schedule a demo for next Friday to see the progress.</p>
+              <p><strong>Jane Smith:</strong> I'll prepare a presentation highlighting the new features and improvements.</p>
+              <p><strong>John Doe:</strong> Perfect. Any blockers or concerns from anyone?</p>
+              <p><strong>Bob Wilson:</strong> I might need some additional resources for the documentation work. The API is quite extensive.</p>
+              <p><strong>John Doe:</strong> I can help with that. We can pair up on the documentation this week.</p>
+              <p><strong>Jane Smith:</strong> Thanks everyone. See you at the next standup!</p>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      </div>
+    </mat-tab>
+
+    <!-- Content Generation Tab -->
+    <mat-tab label="Generate Content">
+      <div class="tab-content">
+        <mat-card class="content-card">
+          <mat-card-header>
+            <mat-card-title>AI Content Generation</mat-card-title>
+            <mat-card-subtitle>Generate summaries, action items, and social media content</mat-card-subtitle>
+          </mat-card-header>
+          
+          <mat-card-content>
+            <div class="generation-form">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Select Automation</mat-label>
+                <mat-select [(ngModel)]="selectedAutomation" placeholder="Choose a template">
+                  <mat-option *ngFor="let automation of automations" [value]="automation.id" class="automation-option">
+                    <div class="option-content">
+                      <div class="option-header">
+                        <mat-icon class="option-icon">{{ getAutomationIcon(automation.name) }}</mat-icon>
+                        <span class="option-title">{{ automation.name }}</span>
+                      </div>
+                      <div class="option-description">{{ automation.description }}</div>
+                    </div>
+                  </mat-option>
+                  <mat-option [value]="null" class="custom-option">
+                    <div class="option-content">
+                      <div class="option-header">
+                        <mat-icon class="option-icon">edit</mat-icon>
+                        <span class="option-title">Custom Prompt</span>
+                      </div>
+                      <div class="option-description">Write your own custom prompt for content generation</div>
+                    </div>
+                  </mat-option>
+                </mat-select>
+              </mat-form-field>
+              
+              <mat-form-field appearance="outline" class="full-width" *ngIf="selectedAutomation === null">
+                <mat-label>Custom Prompt</mat-label>
+                <textarea matInput [(ngModel)]="customPrompt" rows="4" 
+                  placeholder="Enter your custom prompt for content generation..."></textarea>
+              </mat-form-field>
+              
+              <div class="generation-actions">
+                <button mat-raised-button color="primary" (click)="generateContent()" 
+                  [disabled]="isGenerating || (!selectedAutomation && !customPrompt.trim())">
+                  <mat-icon *ngIf="!isGenerating">auto_awesome</mat-icon>
+                  <mat-spinner *ngIf="isGenerating" diameter="20"></mat-spinner>
+                  <span>{{ isGenerating ? 'Generating...' : 'Generate Content' }}</span>
+                </button>
+              </div>
+            </div>
+            
+            <div class="generated-content" *ngIf="generatedContent">
+              <h3>Generated Content</h3>
+              <div class="content-display">
+                <pre>{{ generatedContent }}</pre>
+              </div>
+              
+              <div class="platform-selection" *ngIf="generatedContent">
+                <h4>Select Platforms to Post</h4>
+                <div class="platform-options">
+                  <mat-chip-listbox multiple>
+                    <mat-chip-option 
+                      *ngFor="let platform of socialPlatforms" 
+                      [selected]="selectedPlatforms.includes(platform)"
+                      (click)="togglePlatform(platform)">
+                      <mat-icon>{{ getPlatformIcon(platform) }}</mat-icon>
+                      <span>{{ platform }}</span>
+                    </mat-chip-option>
+                  </mat-chip-listbox>
+                </div>
+              </div>
+              
+              <div class="content-actions">
+                <button mat-button (click)="generatedContent = ''">
+                  <mat-icon>clear</mat-icon>
+                  <span>Clear</span>
+                </button>
+                <button mat-button (click)="copyToClipboard()">
+                  <mat-icon>content_copy</mat-icon>
+                  <span>Copy</span>
+                </button>
+                <button mat-raised-button color="primary" (click)="postToSocialMedia()" [disabled]="isPosting">
+                  <mat-icon *ngIf="!isPosting">share</mat-icon>
+                  <mat-spinner *ngIf="isPosting" diameter="20"></mat-spinner>
+                  <span>{{ isPosting ? 'Posting...' : 'Post to Social Media' }}</span>
+                </button>
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      </div>
+    </mat-tab>
+
+    <!-- Attendees Tab -->
+    <mat-tab label="Attendees">
+      <div class="tab-content">
+        <mat-card class="content-card">
+          <mat-card-header>
+            <mat-card-title>Meeting Participants</mat-card-title>
+            <mat-card-subtitle>{{ meeting.attendees.length }} people attended this meeting</mat-card-subtitle>
+          </mat-card-header>
+          
+          <mat-card-content>
+            <div class="attendees-list">
+              <div class="attendee-item" *ngFor="let attendee of meeting.attendees">
+                <mat-icon>person</mat-icon>
+                <span>{{ attendee }}</span>
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      </div>
+    </mat-tab>
+  </mat-tab-group>
+</div>
+
+<div *ngIf="!meeting && !loading" class="error-state">
+  <mat-icon>error</mat-icon>
+  <h3>Meeting Not Found</h3>
+  <p>The meeting you're looking for doesn't exist or has been deleted.</p>
+  <button mat-raised-button color="primary" (click)="goBack()">
+    <mat-icon>arrow_back</mat-icon>
+    <span>Back to Meetings</span>
+  </button>
+</div>
+
+<div *ngIf="loading" class="loading">
+  <mat-spinner></mat-spinner>
+  <p>Loading meeting details...</p>
+</div>
