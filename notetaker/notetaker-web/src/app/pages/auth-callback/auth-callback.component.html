@@ -1,0 +1,17 @@
+<div class="auth-callback-container">
+  <div class="auth-callback-content">
+    <div *ngIf="isLoading" class="loading">
+      <mat-spinner diameter="50"></mat-spinner>
+      <p>Completing authentication...</p>
+    </div>
+    
+    <div *ngIf="error && !isLoading" class="error">
+      <mat-icon>error</mat-icon>
+      <h3>Authentication Failed</h3>
+      <p>{{ error }}</p>
+      <button mat-raised-button color="primary" (click)="retryLogin()">
+        Try Again
+      </button>
+    </div>
+  </div>
+</div>

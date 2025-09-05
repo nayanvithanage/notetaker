@@ -1,0 +1,133 @@
+/* You can add global styles to this file, and also import other style files */
+
+/* Global Styles for Professional Look */
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: 'Roboto', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #fafafa;
+  color: #1a1a1a;
+  line-height: 1.6;
+}
+
+/* Enhanced Material Design Components */
+.mat-mdc-card {
+  border-radius: 12px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+  border: 1px solid #f0f0f0 !important;
+}
+
+.mat-mdc-button {
+  border-radius: 8px !important;
+  font-weight: 500 !important;
+  text-transform: none !important;
+  letter-spacing: 0.25px !important;
+}
+
+.mat-mdc-raised-button {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+  
+  &:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
+  }
+}
+
+.mat-mdc-fab {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+  
+  &:hover {
+    background: #a8a8a8;
+  }
+}
+
+/* Typography improvements */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  letter-spacing: -0.25px;
+  color: #1a1a1a;
+}
+
+p {
+  color: #666;
+  line-height: 1.6;
+}
+
+/* Focus states */
+.mat-mdc-button:focus,
+.mat-mdc-fab:focus,
+.mat-mdc-icon-button:focus {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+}
+
+/* Animation improvements */
+.mat-mdc-card,
+.mat-mdc-button,
+.mat-mdc-fab {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* Loading spinner improvements */
+.mat-mdc-progress-spinner {
+  circle {
+    stroke: #667eea;
+  }
+}
+
+/* Form field improvements */
+.mat-mdc-form-field {
+  .mat-mdc-text-field-wrapper {
+    border-radius: 8px !important;
+  }
+  
+  .mat-mdc-form-field-focus-overlay {
+    background-color: rgba(102, 126, 234, 0.04) !important;
+  }
+}
+
+/* Chip improvements */
+.mat-mdc-chip {
+  border-radius: 16px !important;
+  font-weight: 500 !important;
+}
+
+/* Tab improvements */
+.mat-mdc-tab-group {
+  .mat-mdc-tab {
+    font-weight: 500 !important;
+    text-transform: none !important;
+  }
+}
+
+/* Menu improvements */
+.mat-mdc-menu-panel {
+  border-radius: 8px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Tooltip improvements */
+.mat-mdc-tooltip {
+  font-size: 12px !important;
+  font-weight: 500 !important;
+}

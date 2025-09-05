@@ -1,0 +1,31 @@
+<div class="login-container">
+  <mat-card class="login-card">
+    <mat-card-header>
+      <mat-card-title>Welcome to Notetaker</mat-card-title>
+      <mat-card-subtitle>Sign in to manage your meetings and automations</mat-card-subtitle>
+    </mat-card-header>
+    
+    <mat-card-content>
+      <div class="login-content">
+        <div class="logo">
+          <mat-icon>event_note</mat-icon>
+          <h2>Notetaker</h2>
+        </div>
+        
+        <p>Connect your Google account to get started with intelligent meeting management.</p>
+      </div>
+    </mat-card-content>
+    
+    <mat-card-actions>
+      <button 
+        mat-raised-button 
+        color="primary" 
+        (click)="loginWithGoogle()"
+        [disabled]="isLoading"
+        class="login-button">
+        <mat-icon>login</mat-icon>
+        {{ isLoading ? 'Signing in...' : 'Sign in with Google' }}
+      </button>
+    </mat-card-actions>
+  </mat-card>
+</div>

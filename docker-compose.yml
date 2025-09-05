@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: notetaker-postgres
+    environment:
+      POSTGRES_DB: notetaker
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - notetaker-network
+
+  adminer:
+    image: adminer
+    container_name: notetaker-adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    networks:
+      - notetaker-network
+
+volumes:
+  postgres_data:
+
+networks:
+  notetaker-network:
+    driver: bridge

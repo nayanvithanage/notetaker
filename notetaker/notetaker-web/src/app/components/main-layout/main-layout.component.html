@@ -1,0 +1,59 @@
+<mat-sidenav-container class="sidenav-container">
+  <mat-sidenav #drawer class="sidenav" mode="side" opened>
+    <div class="sidenav-header">
+      <mat-icon>event_note</mat-icon>
+      <span>Notetaker</span>
+    </div>
+    
+    <mat-nav-list>
+      <a mat-list-item (click)="navigateTo('/meetings')">
+        <mat-icon matListItemIcon>event</mat-icon>
+        <span matListItemTitle>Meetings</span>
+      </a>
+      
+      <a mat-list-item (click)="navigateTo('/automations')">
+        <mat-icon matListItemIcon>auto_awesome</mat-icon>
+        <span matListItemTitle>Automations</span>
+      </a>
+      
+      <a mat-list-item (click)="navigateTo('/settings')">
+        <mat-icon matListItemIcon>settings</mat-icon>
+        <span matListItemTitle>Settings</span>
+      </a>
+    </mat-nav-list>
+  </mat-sidenav>
+  
+  <mat-sidenav-content>
+    <mat-toolbar color="primary">
+      <button mat-icon-button (click)="drawer.toggle()">
+        <mat-icon>menu</mat-icon>
+      </button>
+      
+      <span class="toolbar-title">Notetaker</span>
+      
+      <div class="spacer"></div>
+      
+      <div class="user-menu" *ngIf="isAuthenticated">
+        <span class="user-name">{{ currentUser?.name || 'User' }}</span>
+        <button mat-icon-button [matMenuTriggerFor]="userMenu">
+          <mat-icon>account_circle</mat-icon>
+        </button>
+        
+        <mat-menu #userMenu="matMenu">
+          <button mat-menu-item (click)="navigateTo('/settings')">
+            <mat-icon>settings</mat-icon>
+            <span>Settings</span>
+          </button>
+          <button mat-menu-item (click)="logout()">
+            <mat-icon>logout</mat-icon>
+            <span>Logout</span>
+          </button>
+        </mat-menu>
+      </div>
+    </mat-toolbar>
+    
+    <div class="content">
+      <router-outlet></router-outlet>
+    </div>
+  </mat-sidenav-content>
+</mat-sidenav-container>

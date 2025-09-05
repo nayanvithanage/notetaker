@@ -1,0 +1,133 @@
+.sidenav-container {
+  height: 100vh;
+  background: #fafafa;
+}
+
+.sidenav {
+  width: 280px;
+  background: white;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+  border-right: 1px solid #f0f0f0;
+}
+
+.sidenav-header {
+  display: flex;
+  align-items: center;
+  padding: 24px 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-weight: 600;
+  font-size: 18px;
+  letter-spacing: -0.5px;
+  
+  mat-icon {
+    margin-right: 12px;
+    font-size: 28px;
+    width: 28px;
+    height: 28px;
+  }
+}
+
+.toolbar-title {
+  margin-left: 16px;
+  font-weight: 500;
+  font-size: 20px;
+  color: #1a1a1a;
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+.user-menu {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  
+  .user-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: #333;
+  }
+  
+  button {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #f5f5f5;
+    color: #666;
+    
+    &:hover {
+      background: #e0e0e0;
+    }
+  }
+}
+
+.content {
+  padding: 0;
+  min-height: calc(100vh - 64px);
+  background: #fafafa;
+}
+
+mat-nav-list {
+  padding: 16px 0;
+  
+  a {
+    text-decoration: none;
+    color: #666;
+    font-weight: 500;
+    margin: 4px 16px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    
+    &:hover {
+      background: #f8f9fa;
+      color: #333;
+    }
+    
+    &.active {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    }
+    
+    mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
+  }
+}
+
+// Toolbar enhancements
+::ng-deep .mat-mdc-toolbar {
+  background: white;
+  color: #1a1a1a;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border-bottom: 1px solid #f0f0f0;
+  
+  .mat-mdc-toolbar-row {
+    padding: 0 24px;
+    height: 64px;
+  }
+}
+
+// Menu styling
+::ng-deep .mat-mdc-menu-panel {
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  border: 1px solid #f0f0f0;
+  
+  .mat-mdc-menu-item {
+    font-size: 14px;
+    font-weight: 500;
+    
+    mat-icon {
+      margin-right: 12px;
+    }
+  }
+}

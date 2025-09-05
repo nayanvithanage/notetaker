@@ -1,0 +1,45 @@
+.auth-callback-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+}
+
+.auth-callback-content {
+  text-align: center;
+  background: white;
+  padding: 40px;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  max-width: 400px;
+  width: 100%;
+}
+
+.loading {
+  p {
+    margin-top: 20px;
+    color: #666;
+  }
+}
+
+.error {
+  mat-icon {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+    color: #f44336;
+    margin-bottom: 16px;
+  }
+  
+  h3 {
+    color: #333;
+    margin-bottom: 16px;
+  }
+  
+  p {
+    color: #666;
+    margin-bottom: 24px;
+  }
+}
