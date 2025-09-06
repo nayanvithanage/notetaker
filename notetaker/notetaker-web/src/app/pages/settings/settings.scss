@@ -328,3 +328,20 @@ mat-card-actions {
     gap: 12px;
   }
 }
+
+.platform-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.platform-chips mat-chip {
+  font-size: 12px;
+  height: 28px;
+}
+
+.setting-description {
+  font-size: 14px;
+  color: #666;
+}

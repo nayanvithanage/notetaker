@@ -8,8 +8,9 @@ export interface Meeting {
   joinUrl?: string;
   attendees: string[];
   notetakerEnabled: boolean;
-  status: 'scheduled' | 'ready' | 'processing' | 'failed';
+  status: 'scheduled' | 'ready' | 'processing' | 'failed' | 'recording' | 'cancelled';
   calendarEventId: string;
+  recallBotId?: string;
   createdAt: string;
   updatedAt: string;
 }

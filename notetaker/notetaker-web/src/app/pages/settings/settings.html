@@ -222,6 +222,65 @@
       </div>
     </mat-tab>
 
+    <!-- Bot Settings Tab -->
+    <mat-tab label="Bot Settings">
+      <div class="tab-content">
+        <mat-card class="settings-card">
+          <mat-card-header>
+            <mat-card-title>Notetaker Bot Configuration</mat-card-title>
+            <mat-card-subtitle>Configure how the notetaker bot behaves</mat-card-subtitle>
+          </mat-card-header>
+          
+          <mat-card-content>
+            <div class="setting-item">
+              <div class="setting-info">
+                <h4>Join Meeting Early</h4>
+                <p>How many minutes before the meeting should the bot join? (Recommended: 5-10 minutes)</p>
+              </div>
+              <mat-form-field appearance="outline">
+                <mat-label>Minutes</mat-label>
+                <input matInput type="number" [(ngModel)]="botSettings.leadMinutes" min="1" max="60" placeholder="5">
+                <span matSuffix>minutes</span>
+              </mat-form-field>
+            </div>
+            
+            <div class="setting-item">
+              <div class="setting-info">
+                <h4>Auto-Enable for Zoom</h4>
+                <p>Automatically enable notetaker for Zoom meetings when detected</p>
+              </div>
+              <mat-slide-toggle [checked]="true" [disabled]="true">
+                <span class="setting-description">Always enabled for Zoom meetings</span>
+              </mat-slide-toggle>
+            </div>
+            
+            <div class="setting-item">
+              <div class="setting-info">
+                <h4>Supported Platforms</h4>
+                <p>Meeting platforms that can have notetaker enabled</p>
+              </div>
+              <div class="platform-chips">
+                <mat-chip>Zoom</mat-chip>
+                <mat-chip>Google Meet</mat-chip>
+                <mat-chip>Microsoft Teams</mat-chip>
+                <mat-chip>WebEx</mat-chip>
+                <mat-chip>GoToMeeting</mat-chip>
+                <mat-chip>BlueJeans</mat-chip>
+                <mat-chip>Jitsi</mat-chip>
+              </div>
+            </div>
+          </mat-card-content>
+          
+          <mat-card-actions>
+            <button mat-raised-button color="primary" (click)="saveBotSettings()">
+              <mat-icon>save</mat-icon>
+              <span>Save Bot Settings</span>
+            </button>
+          </mat-card-actions>
+        </mat-card>
+      </div>
+    </mat-tab>
+
     <!-- Privacy Tab -->
     <mat-tab label="Privacy">
       <div class="tab-content">

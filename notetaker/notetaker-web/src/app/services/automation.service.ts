@@ -11,26 +11,26 @@ export class AutomationService {
   constructor(private apiService: ApiService) {}
 
   getAutomations(): Observable<ApiResponse<Automation[]>> {
-    return this.apiService.get<Automation[]>('/automations');
+    return this.apiService.get<Automation[]>('automations');
   }
 
   getAutomation(id: number): Observable<ApiResponse<Automation>> {
-    return this.apiService.get<Automation>(`/automations/${id}`);
+    return this.apiService.get<Automation>(`automations/${id}`);
   }
 
   createAutomation(request: CreateAutomationRequest): Observable<ApiResponse<Automation>> {
-    return this.apiService.post<Automation>('/automations', request);
+    return this.apiService.post<Automation>('automations', request);
   }
 
   updateAutomation(id: number, request: UpdateAutomationRequest): Observable<ApiResponse<Automation>> {
-    return this.apiService.put<Automation>(`/automations/${id}`, request);
+    return this.apiService.put<Automation>(`automations/${id}`, request);
   }
 
   deleteAutomation(id: number): Observable<ApiResponse<any>> {
-    return this.apiService.delete(`/automations/${id}`);
+    return this.apiService.delete(`automations/${id}`);
   }
 
   toggleAutomation(id: number, isActive: boolean): Observable<ApiResponse<Automation>> {
-    return this.apiService.put<Automation>(`/automations/${id}/toggle`, { isActive });
+    return this.apiService.put<Automation>(`automations/${id}/toggle`, { isActive });
   }
 }

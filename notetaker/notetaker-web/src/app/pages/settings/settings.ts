@@ -10,6 +10,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
+import { MatChipsModule } from '@angular/material/chips';
 import { AuthService } from '../../services/auth.service';
 import { MeetingService } from '../../services/meeting.service';
 import { User } from '../../models/auth.model';
@@ -29,7 +30,8 @@ import { User } from '../../models/auth.model';
     MatInputModule,
     MatSelectModule,
     MatSlideToggleModule,
-    MatSnackBarModule
+    MatSnackBarModule,
+    MatChipsModule
   ],
   standalone: true
 })
@@ -69,6 +71,11 @@ export class SettingsComponent implements OnInit {
     allowMarketing: false
   };
 
+  // Bot settings
+  botSettings = {
+    leadMinutes: 5
+  };
+
   constructor(
     private authService: AuthService,
     private meetingService: MeetingService,
@@ -78,6 +85,7 @@ export class SettingsComponent implements OnInit {
   ngOnInit() {
     this.loadUserProfile();
     this.loadGoogleAccounts();
+    this.loadBotSettings();
   }
 
   loadUserProfile() {
@@ -217,5 +225,30 @@ export class SettingsComponent implements OnInit {
   connectRecallAi() {
     // TODO: Implement Recall.ai connection
     this.snackBar.open('Recall.ai connection will open here', 'Close', { duration: 3000 });
+  }
+
+  async loadBotSettings() {
+    try {
+      const response = await this.meetingService.getBotSettings().toPromise();
+      if (response?.success && response.data) {
+        this.botSettings = response.data;
+      }
+    } catch (error) {
+      console.error('Error loading bot settings:', error);
+    }
+  }
+
+  async saveBotSettings() {
+    try {
+      const response = await this.meetingService.updateBotSettings(this.botSettings).toPromise();
+      if (response?.success) {
+        this.snackBar.open('Bot settings saved!', 'Close', { duration: 3000 });
+      } else {
+        this.snackBar.open('Failed to save bot settings', 'Close', { duration: 3000 });
+      }
+    } catch (error) {
+      console.error('Error saving bot settings:', error);
+      this.snackBar.open('Failed to save bot settings', 'Close', { duration: 3000 });
+    }
   }
 }

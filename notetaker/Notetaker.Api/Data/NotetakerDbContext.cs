@@ -103,6 +103,17 @@ public class NotetakerDbContext : DbContext
             entity.Property(e => e.Platform).HasMaxLength(50).HasDefaultValue("unknown");
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            
+            // Add unique constraint to prevent duplicate meetings for the same calendar event and user
+            entity.HasIndex(e => new { e.UserId, e.CalendarEventId })
+                .IsUnique()
+                .HasDatabaseName("IX_Meetings_UserId_CalendarEventId");
+                
+            // Add unique constraint to prevent duplicate bot IDs (one bot can only be used once)
+            entity.HasIndex(e => e.RecallBotId)
+                .IsUnique()
+                .HasDatabaseName("IX_Meetings_RecallBotId")
+                .HasFilter("\"RecallBotId\" IS NOT NULL");
         });
 
         // MeetingTranscript configuration

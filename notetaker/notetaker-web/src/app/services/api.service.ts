@@ -11,7 +11,10 @@ import { ApiResponse } from '../models/api-response.model';
 export class ApiService {
   private baseUrl = environment.apiBaseUrl;
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) {
+    console.log('ApiService constructor - environment.apiBaseUrl:', environment.apiBaseUrl);
+    console.log('ApiService constructor - this.baseUrl:', this.baseUrl);
+  }
 
   private getHeaders(): HttpHeaders {
     const token = localStorage.getItem('accessToken');
@@ -31,7 +34,11 @@ export class ApiService {
       });
     }
 
-    return this.http.get<ApiResponse<T>>(`${this.baseUrl}${endpoint}`, {
+    // Construct the URL properly
+    const url = endpoint.startsWith('http') ? endpoint : `${this.baseUrl}/${endpoint}`;
+    
+    console.log('ApiService GET - baseUrl:', this.baseUrl, 'endpoint:', endpoint, 'final URL:', url);
+    return this.http.get<ApiResponse<T>>(url, {
       headers: this.getHeaders(),
       params: httpParams
     }).pipe(
@@ -43,7 +50,8 @@ export class ApiService {
   }
 
   post<T>(endpoint: string, data: any): Observable<ApiResponse<T>> {
-    return this.http.post<ApiResponse<T>>(`${this.baseUrl}${endpoint}`, data, {
+    const url = endpoint.startsWith('http') ? endpoint : `${this.baseUrl}/${endpoint}`;
+    return this.http.post<ApiResponse<T>>(url, data, {
       headers: this.getHeaders()
     }).pipe(
       map(response => ({
@@ -54,7 +62,8 @@ export class ApiService {
   }
 
   put<T>(endpoint: string, data: any): Observable<ApiResponse<T>> {
-    return this.http.put<ApiResponse<T>>(`${this.baseUrl}${endpoint}`, data, {
+    const url = endpoint.startsWith('http') ? endpoint : `${this.baseUrl}/${endpoint}`;
+    return this.http.put<ApiResponse<T>>(url, data, {
       headers: this.getHeaders()
     }).pipe(
       map(response => ({
@@ -65,7 +74,8 @@ export class ApiService {
   }
 
   delete<T>(endpoint: string): Observable<ApiResponse<T>> {
-    return this.http.delete<ApiResponse<T>>(`${this.baseUrl}${endpoint}`, {
+    const url = endpoint.startsWith('http') ? endpoint : `${this.baseUrl}/${endpoint}`;
+    return this.http.delete<ApiResponse<T>>(url, {
       headers: this.getHeaders()
     }).pipe(
       map(response => ({

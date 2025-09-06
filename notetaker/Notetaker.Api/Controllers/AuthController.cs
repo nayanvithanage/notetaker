@@ -49,9 +49,6 @@ public class AuthController : ControllerBase
         
         if (result.Success)
         {
-            // Calendar sync will be handled by the background job (every 15 minutes)
-            // This prevents duplicate sync calls and improves OAuth performance
-            
             // Redirect to frontend with tokens
             var frontendUrl = _configuration["App:FrontendUrl"];
             return Redirect($"{frontendUrl}/auth/callback?token={result.Data.AccessToken}&refresh={result.Data.RefreshToken}");

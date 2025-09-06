@@ -15,6 +15,7 @@ public class MeetingDto
     public DateTime? StartedAt { get; set; }
     public DateTime? EndedAt { get; set; }
     public DateTime CreatedAt { get; set; }
+    public string? RecallBotId { get; set; }
 }
 
 public class MeetingDetailDto : MeetingDto
