@@ -23,13 +23,13 @@ export class AuthService {
   }
 
   async loginWithGoogle(): Promise<string> {
-    const response = await this.apiService.post<{ authUrl: string; state: string }>('/auth/google/start', {}).toPromise();
+    const response = await this.apiService.post<{ authUrl: string; state: string }>('auth/google/start', {}).toPromise();
     return response?.data?.authUrl || '';
   }
 
   async handleGoogleCallback(code: string, state: string): Promise<boolean> {
     try {
-      const response = await this.apiService.post<AuthResult>('/auth/google/callback', { code, state }).toPromise();
+      const response = await this.apiService.post<AuthResult>('auth/google/callback', { code, state }).toPromise();
       if (response?.success && response.data) {
         this.setAuthData(response.data);
         return true;
@@ -46,7 +46,7 @@ export class AuthService {
       const refreshToken = localStorage.getItem('refreshToken');
       if (!refreshToken) return false;
 
-      const response = await this.apiService.post<AuthResult>('/auth/refresh', { refreshToken }).toPromise();
+      const response = await this.apiService.post<AuthResult>('auth/refresh', { refreshToken }).toPromise();
       if (response?.success && response.data) {
         this.setAuthData(response.data);
         return true;
@@ -60,7 +60,7 @@ export class AuthService {
 
   async logout(): Promise<void> {
     try {
-      await this.apiService.post('/auth/logout', {}).toPromise();
+      await this.apiService.post('auth/logout', {}).toPromise();
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
@@ -69,13 +69,13 @@ export class AuthService {
   }
 
   async startSocialAuth(platform: string): Promise<string> {
-    const response = await this.apiService.post<{ authUrl: string; state: string }>(`/auth/social/connect?platform=${platform}`, {}).toPromise();
+    const response = await this.apiService.post<{ authUrl: string; state: string }>(`auth/social/connect?platform=${platform}`, {}).toPromise();
     return response?.data?.authUrl || '';
   }
 
   async handleSocialCallback(platform: string, code: string, state: string): Promise<SocialAccount | null> {
     try {
-      const response = await this.apiService.post<SocialAccount>('/auth/social/callback', { platform, code, state }).toPromise();
+      const response = await this.apiService.post<SocialAccount>('auth/social/callback', { platform, code, state }).toPromise();
       return response?.data || null;
     } catch (error) {
       console.error('Social callback error:', error);
@@ -85,7 +85,7 @@ export class AuthService {
 
   async getSocialAccounts(): Promise<SocialAccount[]> {
     try {
-      const response = await this.apiService.get<SocialAccount[]>('/auth/social/accounts').toPromise();
+      const response = await this.apiService.get<SocialAccount[]>('auth/social/accounts').toPromise();
       return response?.data || [];
     } catch (error) {
       console.error('Get social accounts error:', error);
@@ -95,7 +95,7 @@ export class AuthService {
 
   async disconnectSocialAccount(accountId: number): Promise<boolean> {
     try {
-      const response = await this.apiService.delete(`/auth/social/accounts/${accountId}`).toPromise();
+      const response = await this.apiService.delete(`auth/social/accounts/${accountId}`).toPromise();
       return response?.success || false;
     } catch (error) {
       console.error('Disconnect social account error:', error);

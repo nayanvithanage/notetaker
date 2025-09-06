@@ -35,6 +35,13 @@ public class BackgroundJobs
             "process-completed-meetings",
             x => x.ProcessCompletedMeetingsAsync(),
             "*/5 * * * *");
+            
+        // Check for new meeting events that need bots every 10 minutes
+        // TEMPORARILY DISABLED to prevent duplicate bot creation while testing
+        // RecurringJob.AddOrUpdate<BackgroundJobs>(
+        //     "check-new-meeting-events",
+        //     x => x.CheckForNewMeetingEventsAsync(),
+        //     "*/10 * * * *");
     }
 
     public async Task PollRecallBotsAsync()
@@ -203,6 +210,78 @@ public class BackgroundJobs
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error in ScheduleRecallBotForMeetingAsync");
+        }
+    }
+
+    public async Task CheckForNewMeetingEventsAsync()
+    {
+        try
+        {
+            using (var scope = _serviceProvider.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<NotetakerDbContext>();
+                var calendarService = scope.ServiceProvider.GetRequiredService<ICalendarService>();
+
+                _logger.LogInformation("Checking for new Zoom meetings that need bots");
+
+                // Find Zoom meetings that have notetaker enabled but no existing meeting/bot
+                // CRITICAL FIX: Check for existing bots by meeting URL across ALL calendar events, not just current calendar event
+                // Also check that no meeting record exists for this calendar event (even with null bot ID)
+                var eventsNeedingBots = await context.CalendarEvents
+                    .Where(ce => ce.NotetakerEnabled 
+                        && !string.IsNullOrEmpty(ce.JoinUrl)
+                        && ce.Platform == "zoom"
+                        && !ce.Meetings.Any(m => !string.IsNullOrEmpty(m.RecallBotId)))
+                    .Where(ce => !context.Meetings
+                        .Include(m => m.CalendarEvent)
+                        .Any(m => m.CalendarEvent.JoinUrl == ce.JoinUrl && !string.IsNullOrEmpty(m.RecallBotId)))
+                    .Where(ce => !context.Meetings.Any(m => m.CalendarEventId == ce.Id))
+                    .ToListAsync();
+
+                _logger.LogInformation("Found {EventCount} events needing bots", eventsNeedingBots.Count);
+
+                foreach (var calendarEvent in eventsNeedingBots)
+                {
+                    try
+                    {
+                        // Use a database transaction to prevent race conditions
+                        using var transaction = await context.Database.BeginTransactionAsync();
+                        
+                        // Double-check that no bot exists before creating one (within transaction)
+                        var existingMeeting = await context.Meetings
+                            .FirstOrDefaultAsync(m => m.CalendarEventId == calendarEvent.Id && m.UserId == calendarEvent.UserId);
+                        
+                        if (existingMeeting != null)
+                        {
+                            _logger.LogInformation("Meeting already exists for event {Title}, skipping bot creation", calendarEvent.Title);
+                            await transaction.RollbackAsync();
+                            continue;
+                        }
+
+                        _logger.LogInformation("Auto-creating bot for Zoom meeting: {Title}", calendarEvent.Title);
+                        
+                        var botResult = await calendarService.ScheduleRecallBotAsync(calendarEvent.UserId, calendarEvent.Id);
+                        if (botResult.Success)
+                        {
+                            await transaction.CommitAsync();
+                            _logger.LogInformation("Successfully auto-created bot for event: {Title}", calendarEvent.Title);
+                        }
+                        else
+                        {
+                            await transaction.RollbackAsync();
+                            _logger.LogWarning("Failed to auto-create bot for event {Title}: {Error}", calendarEvent.Title, botResult.Message);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error auto-creating bot for event {EventId}: {Title}", calendarEvent.Id, calendarEvent.Title);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in CheckForNewMeetingEventsAsync");
         }
     }
 }

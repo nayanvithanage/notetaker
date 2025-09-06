@@ -46,7 +46,8 @@ public class MeetingService : IMeetingService
                     Attendees = new List<string>(), // Will be populated below
                     StartedAt = m.StartedAt,
                     EndedAt = m.EndedAt,
-                    CreatedAt = m.CreatedAt
+                    CreatedAt = m.CreatedAt,
+                    RecallBotId = m.RecallBotId
                 })
                 .ToListAsync();
 
@@ -117,6 +118,7 @@ public class MeetingService : IMeetingService
                 StartedAt = meeting.StartedAt,
                 EndedAt = meeting.EndedAt,
                 CreatedAt = meeting.CreatedAt,
+                RecallBotId = meeting.RecallBotId,
                 TranscriptText = transcript?.TranscriptText,
                 SummaryJson = transcript?.SummaryJson,
                 MediaUrls = mediaUrls,
@@ -152,31 +154,6 @@ public class MeetingService : IMeetingService
         }
     }
 
-    public async Task<ApiResponse> ToggleNotetakerAsync(int userId, int calendarEventId, bool enabled)
-    {
-        try
-        {
-            var calendarEvent = await _context.CalendarEvents
-                .FirstOrDefaultAsync(ce => ce.Id == calendarEventId && ce.UserId == userId);
-
-            if (calendarEvent == null)
-            {
-                return ApiResponse.ErrorResult("Calendar event not found");
-            }
-
-            calendarEvent.NotetakerEnabled = enabled;
-            calendarEvent.UpdatedAt = DateTime.UtcNow;
-
-            await _context.SaveChangesAsync();
-
-            return ApiResponse.SuccessResult($"Notetaker {(enabled ? "enabled" : "disabled")} successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error toggling notetaker for calendar event {CalendarEventId}", calendarEventId);
-            return ApiResponse.ErrorResult("Failed to toggle notetaker");
-        }
-    }
 
     public async Task<ApiResponse<GeneratedContentDto>> GenerateContentAsync(int userId, int meetingId, int automationId)
     {

@@ -13,6 +13,10 @@ public class CalendarEventDto
     public bool NotetakerEnabled { get; set; }
     public string AccountEmail { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
+    // Meeting data
+    public int? MeetingId { get; set; }
+    public string? RecallBotId { get; set; }
+    public string? MeetingStatus { get; set; }
 }
 
 public class GoogleCalendarConnectDto
@@ -34,6 +38,21 @@ public class CalendarAccountDto
     public string SyncState { get; set; } = string.Empty;
     public DateTime? LastSyncAt { get; set; }
     public DateTime CreatedAt { get; set; }
+}
+
+public class SyncEventsRequest
+{
+    public int CalendarAccountId { get; set; }
+}
+
+public class ToggleNotetakerRequest
+{
+    public bool Enabled { get; set; }
+}
+
+public class BotSettingsDto
+{
+    public int LeadMinutes { get; set; }
 }
 
 

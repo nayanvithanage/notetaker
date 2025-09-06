@@ -10,6 +10,10 @@ public interface IRecallAiService
     Task<ApiResponse> ProcessMeetingMediaAsync(int meetingId);
     Task<ApiResponse<RecallBotStatus>> GetBotStatusAsync(string botId);
     Task<ApiResponse<RecallTranscript>> DownloadTranscriptAsync(string botId);
+    Task<ApiResponse<List<RecallBotStatus>>> GetAllBotsAsync();
+    Task<ApiResponse<List<RecallBotStatus>>> GetBotsByMeetingUrlAsync(string meetingUrl);
+    Task<ApiResponse> DeleteBotAsync(string botId);
+    Task<ApiResponse> DeleteAllBotsAsync();
 }
 
 public class RecallBotStatus

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Notetaker.Api.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Notetaker.Api.Migrations
 {
     [DbContext(typeof(NotetakerDbContext))]
-    partial class NotetakerDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250906121659_AddUniqueConstraintToMeetings")]
+    partial class AddUniqueConstraintToMeetings
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -278,11 +281,6 @@ namespace Notetaker.Api.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CalendarEventId");
-
-                    b.HasIndex("RecallBotId")
-                        .IsUnique()
-                        .HasDatabaseName("IX_Meetings_RecallBotId")
-                        .HasFilter("\"RecallBotId\" IS NOT NULL");
 
                     b.HasIndex("UserId", "CalendarEventId")
                         .IsUnique()

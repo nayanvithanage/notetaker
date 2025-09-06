@@ -11,7 +11,7 @@ export class MeetingService {
   constructor(private apiService: ApiService) {}
 
   getMeetings(type: 'upcoming' | 'past'): Observable<ApiResponse<Meeting[]>> {
-    return this.apiService.get<Meeting[]>(`/meetings?type=${type}`);
+    return this.apiService.get<Meeting[]>(`meetings?type=${type}`);
   }
 
   getCalendarEvents(from?: Date, to?: Date): Observable<ApiResponse<any[]>> {
@@ -19,40 +19,52 @@ export class MeetingService {
     if (from) params.from = from.toISOString();
     if (to) params.to = to.toISOString();
     
-    return this.apiService.get<any[]>('/calendar/events', params);
+    return this.apiService.get<any[]>('calendar/events', params);
   }
 
   connectGoogleCalendar(code: string, state: string): Observable<ApiResponse<any>> {
-    return this.apiService.post('/calendar/google/connect', {
+    return this.apiService.post('calendar/google/connect', {
       code,
       state
     });
   }
 
   syncCalendarEvents(calendarAccountId: number): Observable<ApiResponse<any>> {
-    return this.apiService.post('/calendar/sync', {
+    return this.apiService.post('calendar/sync', {
       calendarAccountId
     });
   }
 
   getMeeting(id: number): Observable<ApiResponse<MeetingDetail>> {
-    return this.apiService.get<MeetingDetail>(`/meetings/${id}`);
+    return this.apiService.get<MeetingDetail>(`meetings/${id}`);
   }
 
   toggleNotetaker(calendarEventId: number, enabled: boolean): Observable<ApiResponse<any>> {
-    return this.apiService.post(`/calendar/events/${calendarEventId}/notetaker:toggle`, {
+    return this.apiService.post(`calendar/events/${calendarEventId}/notetaker:toggle`, {
       enabled
     });
   }
 
   generateContent(meetingId: number, automationId?: number): Observable<ApiResponse<any>> {
-    return this.apiService.post('/meetings/generate-content', {
+    return this.apiService.post('meetings/generate-content', {
       meetingId,
       automationId
     });
   }
 
   deleteMeeting(id: number): Observable<ApiResponse<any>> {
-    return this.apiService.delete(`/meetings/${id}`);
+    return this.apiService.delete(`meetings/${id}`);
+  }
+
+  getBotStatus(meetingId: number): Observable<ApiResponse<any>> {
+    return this.apiService.get(`calendar/bot-status/${meetingId}`);
+  }
+
+  getBotSettings(): Observable<ApiResponse<any>> {
+    return this.apiService.get('calendar/bot-settings');
+  }
+
+  updateBotSettings(settings: any): Observable<ApiResponse<any>> {
+    return this.apiService.post('calendar/bot-settings', settings);
   }
 }

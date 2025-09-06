@@ -3,8 +3,9 @@
     <h1>Meetings</h1>
     <div class="header-actions">
       <button mat-button (click)="syncCalendar()" [disabled]="loading">
-        <mat-icon>sync</mat-icon>
-        <span>Sync Calendar</span>
+        <mat-icon *ngIf="!loading">sync</mat-icon>
+        <mat-spinner *ngIf="loading" diameter="16"></mat-spinner>
+        <span>{{ loading ? 'Syncing...' : 'Sync Calendar' }}</span>
       </button>
       <button mat-raised-button color="primary" (click)="refreshMeetings()" [disabled]="loading">
         <mat-icon>refresh</mat-icon>
@@ -36,8 +37,13 @@
             <div class="notetaker-toggle">
               <mat-slide-toggle 
                 [checked]="meeting.notetakerEnabled" 
+                [disabled]="isToggling(meeting)"
                 (change)="toggleNotetaker(meeting, $event.checked)">
-                Enable Notetaker
+                <span *ngIf="!isToggling(meeting)">Enable Notetaker</span>
+                <span *ngIf="isToggling(meeting)" class="loading-text">
+                  <mat-spinner diameter="16"></mat-spinner>
+                  Processing...
+                </span>
               </mat-slide-toggle>
             </div>
           </mat-card-content>
@@ -45,6 +51,10 @@
             <button mat-button (click)="joinMeeting(meeting)" *ngIf="meeting.joinUrl">
               <mat-icon>video_call</mat-icon>
               <span>Join</span>
+            </button>
+            <button mat-button (click)="openBotDetails(meeting)" *ngIf="meeting.notetakerEnabled">
+              <mat-icon>robot</mat-icon>
+              <span>Bot Details</span>
             </button>
             <button mat-button (click)="viewMeeting(meeting)">
               <mat-icon>visibility</mat-icon>

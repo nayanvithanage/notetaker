@@ -125,6 +125,32 @@
       background-color: #667eea;
     }
   }
+  
+  .loading-text {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: #666;
+    
+    mat-spinner {
+      width: 16px;
+      height: 16px;
+    }
+  }
+
+  .disabled-text {
+    font-size: 14px;
+    color: #999;
+    font-style: italic;
+  }
+
+  .help-text {
+    font-size: 12px;
+    color: #666;
+    margin-top: 8px;
+    font-style: italic;
+  }
 }
 
 .status {

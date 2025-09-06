@@ -36,13 +36,6 @@ public class MeetingsController : ControllerBase
         return result.Success ? Ok(result) : BadRequest(result);
     }
 
-    [HttpPost("calendar-events/{calendarEventId}/notetaker:toggle")]
-    public async Task<IActionResult> ToggleNotetaker(int calendarEventId, [FromBody] ToggleNotetakerRequest request)
-    {
-        var userId = GetCurrentUserId();
-        var result = await _meetingService.ToggleNotetakerAsync(userId, calendarEventId, request.Enabled);
-        return result.Success ? Ok(result) : BadRequest(result);
-    }
 
     [HttpPost("{id}/generate")]
     public async Task<IActionResult> GenerateContent(int id, [FromBody] GenerateContentRequest request)
@@ -83,10 +76,6 @@ public class MeetingsController : ControllerBase
     }
 }
 
-public class ToggleNotetakerRequest
-{
-    public bool Enabled { get; set; }
-}
 
 public class GenerateContentRequest
 {
