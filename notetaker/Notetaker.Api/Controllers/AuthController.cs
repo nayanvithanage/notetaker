@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Notetaker.Api.DTOs;
 using Notetaker.Api.Services;
+using Notetaker.Api.Data;
 using System.Security.Claims;
 
 namespace Notetaker.Api.Controllers;
@@ -11,12 +13,18 @@ namespace Notetaker.Api.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
+    private readonly ICalendarService _calendarService;
+    private readonly NotetakerDbContext _context;
+    private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<AuthController> _logger;
     private readonly IConfiguration _configuration;
 
-    public AuthController(IAuthService authService, ILogger<AuthController> logger, IConfiguration configuration)
+    public AuthController(IAuthService authService, ICalendarService calendarService, NotetakerDbContext context, IServiceProvider serviceProvider, ILogger<AuthController> logger, IConfiguration configuration)
     {
         _authService = authService;
+        _calendarService = calendarService;
+        _context = context;
+        _serviceProvider = serviceProvider;
         _logger = logger;
         _configuration = configuration;
     }
@@ -41,6 +49,9 @@ public class AuthController : ControllerBase
         
         if (result.Success)
         {
+            // Calendar sync will be handled by the background job (every 15 minutes)
+            // This prevents duplicate sync calls and improves OAuth performance
+            
             // Redirect to frontend with tokens
             var frontendUrl = _configuration["App:FrontendUrl"];
             return Redirect($"{frontendUrl}/auth/callback?token={result.Data.AccessToken}&refresh={result.Data.RefreshToken}");

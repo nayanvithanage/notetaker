@@ -13,6 +13,9 @@ public class UserToken
     [MaxLength(50)]
     public string Provider { get; set; } = string.Empty; // google, linkedin, facebook
     
+    [MaxLength(255)]
+    public string? AccountEmail { get; set; } // For multiple accounts per provider
+    
     [Required]
     public string AccessToken { get; set; } = string.Empty; // Encrypted
     

@@ -9,6 +9,7 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MeetingService } from '../../services/meeting.service';
+import { AuthService } from '../../services/auth.service';
 import { Meeting } from '../../models/meeting.model';
 
 @Component({
@@ -34,6 +35,7 @@ export class MeetingsComponent implements OnInit {
 
   constructor(
     private meetingService: MeetingService,
+    private authService: AuthService,
     private router: Router
   ) {}
 
@@ -45,17 +47,41 @@ export class MeetingsComponent implements OnInit {
   async loadMeetings() {
     this.loading = true;
     try {
-      // For now, use sample data until the API is fully connected
-      this.upcomingMeetings = this.getSampleUpcomingMeetings();
-      this.pastMeetings = this.getSamplePastMeetings();
+      // Load calendar events from the API
+      const now = new Date();
+      const fromDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000); // 7 days ago
+      const toDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days from now
       
-      // TODO: Replace with actual API calls when backend is ready
-      // const upcomingResponse = await this.meetingService.getMeetings('upcoming').toPromise();
-      // const pastResponse = await this.meetingService.getMeetings('past').toPromise();
-      // this.upcomingMeetings = upcomingResponse?.data || [];
-      // this.pastMeetings = pastResponse?.data || [];
+      console.log('Loading calendar events from:', fromDate, 'to:', toDate);
+      const response = await this.meetingService.getCalendarEvents(fromDate, toDate).toPromise();
+      console.log('Calendar API response:', response);
+      
+      if (response?.success && response.data) {
+        const allEvents = response.data;
+        console.log('Received calendar events:', allEvents);
+        const now = new Date();
+        
+        this.upcomingMeetings = allEvents
+          .filter(event => new Date(event.startsAt) > now)
+          .map(event => this.mapCalendarEventToMeeting(event));
+          
+        this.pastMeetings = allEvents
+          .filter(event => new Date(event.startsAt) <= now)
+          .map(event => this.mapCalendarEventToMeeting(event));
+          
+        console.log('Upcoming meetings:', this.upcomingMeetings);
+        console.log('Past meetings:', this.pastMeetings);
+      } else {
+        console.log('API failed or no data, using sample data');
+        // Fallback to sample data if API fails
+        this.upcomingMeetings = this.getSampleUpcomingMeetings();
+        this.pastMeetings = this.getSamplePastMeetings();
+      }
     } catch (error) {
       console.error('Error loading meetings:', error);
+      // Fallback to sample data on error
+      this.upcomingMeetings = this.getSampleUpcomingMeetings();
+      this.pastMeetings = this.getSamplePastMeetings();
     } finally {
       this.loading = false;
     }
@@ -133,9 +159,36 @@ export class MeetingsComponent implements OnInit {
     await this.loadMeetings();
   }
 
+  async syncCalendar() {
+    this.loading = true;
+    try {
+      // Get all connected Google accounts and sync them
+      const socialAccounts = await this.authService.getSocialAccounts();
+      const googleAccounts = socialAccounts.filter((account: any) => account.platform === 'google');
+      
+      if (googleAccounts.length === 0) {
+        console.log('No Google accounts connected');
+        return;
+      }
+      
+      // Sync each Google account
+      for (const account of googleAccounts) {
+        console.log('Syncing account:', account);
+        await this.meetingService.syncCalendarEvents(account.id).toPromise();
+      }
+      
+      // Reload meetings after sync
+      await this.loadMeetings();
+    } catch (error) {
+      console.error('Error syncing calendar:', error);
+    } finally {
+      this.loading = false;
+    }
+  }
+
   async toggleNotetaker(meeting: Meeting, enabled: boolean) {
     try {
-      await this.meetingService.toggleNotetaker(meeting.calendarEventId, enabled).toPromise();
+      await this.meetingService.toggleNotetaker(meeting.id, enabled).toPromise();
       meeting.notetakerEnabled = enabled;
     } catch (error) {
       console.error('Error toggling notetaker:', error);
@@ -173,5 +226,23 @@ export class MeetingsComponent implements OnInit {
       case 'failed': return 'warn';
       default: return 'basic';
     }
+  }
+
+  private mapCalendarEventToMeeting(event: any): Meeting {
+    return {
+      id: event.id,
+      title: event.title,
+      description: event.description || '',
+      startsAt: event.startsAt,
+      endsAt: event.endsAt,
+      platform: event.platform || 'unknown',
+      joinUrl: event.joinUrl || '',
+      attendees: event.attendees || [],
+      notetakerEnabled: event.notetakerEnabled || false,
+      status: event.status || 'scheduled',
+      calendarEventId: event.externalEventId || event.id.toString(),
+      createdAt: event.createdAt || new Date().toISOString(),
+      updatedAt: event.updatedAt || new Date().toISOString()
+    };
   }
 }

@@ -160,21 +160,28 @@ public class NotetakerCalendarService : ICalendarService
     {
         try
         {
+            _logger.LogInformation("Starting calendar sync for user {UserId}, account {AccountId}", userId, calendarAccountId);
+            
             var calendarAccount = await _context.GoogleCalendarAccounts
                 .FirstOrDefaultAsync(gca => gca.Id == calendarAccountId && gca.UserId == userId);
 
             if (calendarAccount == null)
             {
+                _logger.LogWarning("Calendar account not found for user {UserId}, account {AccountId}", userId, calendarAccountId);
                 return ApiResponse.ErrorResult("Calendar account not found");
             }
 
+            // Get the token for this specific calendar account
             var userToken = await _context.UserTokens
-                .FirstOrDefaultAsync(ut => ut.UserId == userId && ut.Provider == "google");
+                .FirstOrDefaultAsync(ut => ut.UserId == userId && ut.Provider == "google" && ut.AccountEmail == calendarAccount.AccountEmail);
 
             if (userToken == null)
             {
-                return ApiResponse.ErrorResult("Google token not found");
+                _logger.LogWarning("Google token not found for user {UserId} and account {AccountEmail}", userId, calendarAccount.AccountEmail);
+                return ApiResponse.ErrorResult("Google token not found for this account");
             }
+
+            _logger.LogInformation("Found Google token for user {UserId}, expires at {ExpiresAt}", userId, userToken.ExpiresAt);
 
             var accessToken = _dataProtector.Unprotect(userToken.AccessToken);
             var service = CreateGoogleCalendarService(accessToken);
@@ -185,7 +192,13 @@ public class NotetakerCalendarService : ICalendarService
             request.SingleEvents = true;
             request.OrderBy = Google.Apis.Calendar.v3.EventsResource.ListRequest.OrderByEnum.StartTime;
 
+            _logger.LogInformation("Calling Google Calendar API for user {UserId}, time range: {TimeMin} to {TimeMax}", 
+                userId, request.TimeMin, request.TimeMax);
+
             var events = await request.ExecuteAsync();
+            
+            _logger.LogInformation("Google Calendar API returned {EventCount} events for user {UserId}", 
+                events.Items?.Count ?? 0, userId);
 
             foreach (var eventItem in events.Items ?? new List<Event>())
             {
@@ -198,6 +211,17 @@ public class NotetakerCalendarService : ICalendarService
                 var joinUrl = ExtractJoinUrl(eventItem);
                 var platform = DetectPlatform(joinUrl);
 
+                // Convert DateTime to UTC to avoid PostgreSQL timezone issues
+                var startTime = eventItem.Start.DateTime.Value.Kind == DateTimeKind.Utc 
+                    ? eventItem.Start.DateTime.Value 
+                    : DateTime.SpecifyKind(eventItem.Start.DateTime.Value, DateTimeKind.Utc);
+                
+                var endTime = eventItem.End?.DateTime != null 
+                    ? (eventItem.End.DateTime.Value.Kind == DateTimeKind.Utc 
+                        ? eventItem.End.DateTime.Value 
+                        : DateTime.SpecifyKind(eventItem.End.DateTime.Value, DateTimeKind.Utc))
+                    : startTime.AddHours(1);
+
                 if (existingEvent == null)
                 {
                     var calendarEvent = new CalendarEvent
@@ -206,8 +230,8 @@ public class NotetakerCalendarService : ICalendarService
                         GoogleCalendarAccountId = calendarAccountId,
                         ExternalEventId = eventItem.Id ?? "",
                         Title = eventItem.Summary ?? "Untitled Event",
-                        StartsAt = eventItem.Start.DateTime.Value,
-                        EndsAt = eventItem.End?.DateTime ?? eventItem.Start.DateTime.Value.AddHours(1),
+                        StartsAt = startTime,
+                        EndsAt = endTime,
                         AttendeesJson = System.Text.Json.JsonSerializer.Serialize(attendees),
                         Platform = platform,
                         JoinUrl = joinUrl,
@@ -221,8 +245,8 @@ public class NotetakerCalendarService : ICalendarService
                 else
                 {
                     existingEvent.Title = eventItem.Summary ?? "Untitled Event";
-                    existingEvent.StartsAt = eventItem.Start.DateTime.Value;
-                    existingEvent.EndsAt = eventItem.End?.DateTime ?? eventItem.Start.DateTime.Value.AddHours(1);
+                    existingEvent.StartsAt = startTime;
+                    existingEvent.EndsAt = endTime;
                     existingEvent.AttendeesJson = System.Text.Json.JsonSerializer.Serialize(attendees);
                     existingEvent.Platform = platform;
                     existingEvent.JoinUrl = joinUrl;

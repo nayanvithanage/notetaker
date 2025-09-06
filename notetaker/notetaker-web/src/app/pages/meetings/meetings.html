@@ -1,10 +1,16 @@
 <div class="meetings-container">
   <div class="header">
     <h1>Meetings</h1>
-    <button mat-raised-button color="primary" (click)="refreshMeetings()">
-      <mat-icon>refresh</mat-icon>
-      <span>Refresh</span>
-    </button>
+    <div class="header-actions">
+      <button mat-button (click)="syncCalendar()" [disabled]="loading">
+        <mat-icon>sync</mat-icon>
+        <span>Sync Calendar</span>
+      </button>
+      <button mat-raised-button color="primary" (click)="refreshMeetings()" [disabled]="loading">
+        <mat-icon>refresh</mat-icon>
+        <span>Refresh</span>
+      </button>
+    </div>
   </div>
 
   <mat-tab-group>

@@ -24,11 +24,11 @@ public class BackgroundJobs
             x => x.PollRecallBotsAsync(),
             "*/2 * * * *");
 
-        // Sync Google Calendar events every 15 minutes
+        // Sync Google Calendar events every 30 minutes
         RecurringJob.AddOrUpdate<BackgroundJobs>(
             "sync-calendar-events",
             x => x.SyncCalendarEventsAsync(),
-            "*/15 * * * *");
+            "*/30 * * * *");
 
         // Process completed meetings every 5 minutes
         RecurringJob.AddOrUpdate<BackgroundJobs>(

@@ -21,6 +21,12 @@
     letter-spacing: -0.5px;
   }
   
+  .header-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  
   button {
     display: flex;
     align-items: center;

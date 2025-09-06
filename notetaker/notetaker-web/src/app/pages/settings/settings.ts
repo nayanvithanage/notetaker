@@ -11,6 +11,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
 import { AuthService } from '../../services/auth.service';
+import { MeetingService } from '../../services/meeting.service';
 import { User } from '../../models/auth.model';
 
 @Component({
@@ -35,6 +36,8 @@ import { User } from '../../models/auth.model';
 export class SettingsComponent implements OnInit {
   currentUser: User | null = null;
   selectedTab = 0;
+  googleAccounts: any[] = [];
+  isLoadingAccounts = false;
 
   // Profile settings
   profileForm = {
@@ -68,11 +71,13 @@ export class SettingsComponent implements OnInit {
 
   constructor(
     private authService: AuthService,
+    private meetingService: MeetingService,
     private snackBar: MatSnackBar
   ) {}
 
   ngOnInit() {
     this.loadUserProfile();
+    this.loadGoogleAccounts();
   }
 
   loadUserProfile() {
@@ -136,9 +141,67 @@ export class SettingsComponent implements OnInit {
     }
   }
 
-  connectGoogleCalendar() {
-    // TODO: Implement Google Calendar connection
-    this.snackBar.open('Google Calendar connection will open here', 'Close', { duration: 3000 });
+  async loadGoogleAccounts() {
+    this.isLoadingAccounts = true;
+    try {
+      const response = await this.authService.getSocialAccounts();
+      this.googleAccounts = response.filter(account => account.platform === 'google');
+    } catch (error) {
+      console.error('Error loading Google accounts:', error);
+      this.snackBar.open('Failed to load Google accounts', 'Close', { duration: 3000 });
+    } finally {
+      this.isLoadingAccounts = false;
+    }
+  }
+
+  async connectGoogleCalendar() {
+    try {
+      const state = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      localStorage.setItem('oauth_state', state);
+      
+      const googleAuthUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' +
+        'client_id=1010111570699-oi8seird36hgpr9je5986r5u9p8gc8c3.apps.googleusercontent.com&' +
+        'redirect_uri=http://localhost:5135/api/auth/google/callback&' +
+        'response_type=code&' +
+        'scope=openid email profile https://www.googleapis.com/auth/calendar.readonly&' +
+        'access_type=offline&' +
+        'prompt=consent&' +
+        'state=' + encodeURIComponent(state);
+      
+      window.location.href = googleAuthUrl;
+    } catch (error) {
+      console.error('Error connecting Google Calendar:', error);
+      this.snackBar.open('Failed to connect Google Calendar', 'Close', { duration: 3000 });
+    }
+  }
+
+  async disconnectGoogleAccount(accountId: number) {
+    try {
+      const success = await this.authService.disconnectSocialAccount(accountId);
+      if (success) {
+        this.snackBar.open('Google account disconnected successfully', 'Close', { duration: 3000 });
+        this.loadGoogleAccounts();
+      } else {
+        this.snackBar.open('Failed to disconnect Google account', 'Close', { duration: 3000 });
+      }
+    } catch (error) {
+      console.error('Error disconnecting Google account:', error);
+      this.snackBar.open('Failed to disconnect Google account', 'Close', { duration: 3000 });
+    }
+  }
+
+  async syncGoogleAccount(accountId: number) {
+    try {
+      const response = await this.meetingService.syncCalendarEvents(accountId).toPromise();
+      if (response?.success) {
+        this.snackBar.open('Google Calendar synced successfully', 'Close', { duration: 3000 });
+      } else {
+        this.snackBar.open('Failed to sync Google Calendar', 'Close', { duration: 3000 });
+      }
+    } catch (error) {
+      console.error('Error syncing Google Calendar:', error);
+      this.snackBar.open('Failed to sync Google Calendar', 'Close', { duration: 3000 });
+    }
   }
 
   connectLinkedIn() {
