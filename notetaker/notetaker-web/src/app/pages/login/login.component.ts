@@ -40,7 +40,7 @@ export class LoginComponent {
         'client_id=1010111570699-oi8seird36hgpr9je5986r5u9p8gc8c3.apps.googleusercontent.com&' +
         'redirect_uri=http://localhost:5135/api/auth/google/callback&' +
         'response_type=code&' +
-        'scope=openid email profile https://www.googleapis.com/auth/calendar&' +
+        'scope=openid email profile https://www.googleapis.com/auth/calendar.readonly&' +
         'access_type=offline&' +
         'prompt=consent&' +
         'state=' + encodeURIComponent(state);

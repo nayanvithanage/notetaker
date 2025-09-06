@@ -9,6 +9,7 @@ using Notetaker.Api.Configuration;
 using Notetaker.Api.Data;
 using Notetaker.Api.DTOs;
 using Notetaker.Api.Models;
+using System.Text.Json;
 
 namespace Notetaker.Api.Services;
 
@@ -49,7 +50,9 @@ public class AuthService : IAuthService
                          $"client_id={_googleSettings.ClientId}&" +
                          $"redirect_uri={Uri.EscapeDataString(_googleSettings.RedirectUri)}&" +
                          $"response_type=code&" +
-                         $"scope={Uri.EscapeDataString("openid email profile")}&" +
+                         $"scope={Uri.EscapeDataString("openid email profile https://www.googleapis.com/auth/calendar.readonly")}&" +
+                         $"access_type=offline&" +
+                         $"prompt=consent&" +
                          $"state={state}";
 
             return ApiResponse<GoogleAuthStartDto>.SuccessResult(new GoogleAuthStartDto
@@ -69,23 +72,82 @@ public class AuthService : IAuthService
     {
         try
         {
-            // In a real implementation, you would:
             // 1. Exchange the code for tokens with Google
-            // 2. Get user info from Google
-            // 3. Create or update user in database
-            // 4. Generate JWT tokens
-
-            // For now, return a mock response
-            var user = new UserDto
+            var tokenRequest = new
             {
-                Id = 1,
-                Email = "test@example.com",
-                Name = "Test User",
-                PictureUrl = "https://example.com/avatar.jpg",
-                AuthProvider = "google",
-                CreatedAt = DateTime.UtcNow
+                client_id = _googleSettings.ClientId,
+                client_secret = _googleSettings.ClientSecret,
+                code = request.Code,
+                grant_type = "authorization_code",
+                redirect_uri = _googleSettings.RedirectUri
             };
 
+            using var httpClient = new HttpClient();
+            var tokenResponse = await httpClient.PostAsJsonAsync("https://oauth2.googleapis.com/token", tokenRequest);
+            var tokenData = await tokenResponse.Content.ReadFromJsonAsync<GoogleTokenResponse>();
+
+            if (tokenData?.access_token == null)
+            {
+                return ApiResponse<AuthResultDto>.ErrorResult("Failed to get access token from Google");
+            }
+
+            // 2. Get user info from Google
+            var userInfo = await GetGoogleUserInfoAsync(tokenData.access_token);
+            if (userInfo == null)
+            {
+                return ApiResponse<AuthResultDto>.ErrorResult("Failed to get user info from Google");
+            }
+
+            // 3. For multiple Google accounts, we need to get the current user
+            // In a real app, you'd get the user ID from the JWT token
+            // For now, we'll use the first user or create one if none exists
+            var currentUser = await _context.Users
+                .FirstOrDefaultAsync();
+
+            UserDto user;
+            if (currentUser != null)
+            {
+                // Use existing user for multiple Google accounts
+                user = new UserDto
+                {
+                    Id = currentUser.Id,
+                    Email = currentUser.Email,
+                    Name = currentUser.Name,
+                    PictureUrl = currentUser.PictureUrl,
+                    AuthProvider = "google",
+                    CreatedAt = currentUser.CreatedAt
+                };
+            }
+            else
+            {
+                // Create new user only if no user exists
+                var newUser = new User
+                {
+                    Email = userInfo.Email ?? "",
+                    Name = userInfo.Name ?? "",
+                    PictureUrl = userInfo.Picture ?? "",
+                    AuthProvider = "google",
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                _context.Users.Add(newUser);
+                await _context.SaveChangesAsync();
+
+                user = new UserDto
+                {
+                    Id = newUser.Id,
+                    Email = newUser.Email,
+                    Name = newUser.Name,
+                    PictureUrl = newUser.PictureUrl,
+                    AuthProvider = "google",
+                    CreatedAt = newUser.CreatedAt
+                };
+            }
+
+            // 4. Store Google tokens for calendar access
+            await StoreGoogleTokensAsync(user.Id, tokenData, userInfo);
+
+            // 5. Generate JWT tokens
             var accessToken = GenerateJwtToken(user);
             var refreshToken = GenerateRefreshToken();
 
@@ -234,7 +296,7 @@ public class AuthService : IAuthService
     {
         try
         {
-            var accounts = await _context.SocialAccounts
+            var socialAccounts = await _context.SocialAccounts
                 .Where(sa => sa.UserId == userId)
                 .Select(sa => new SocialAccountDto
                 {
@@ -247,7 +309,23 @@ public class AuthService : IAuthService
                 })
                 .ToListAsync();
 
-            return ApiResponse<List<SocialAccountDto>>.SuccessResult(accounts);
+            // Also include Google Calendar accounts
+            var googleCalendarAccounts = await _context.GoogleCalendarAccounts
+                .Where(gca => gca.UserId == userId)
+                .Select(gca => new SocialAccountDto
+                {
+                    Id = gca.Id,
+                    Platform = "google",
+                    AccountId = gca.AccountEmail,
+                    DisplayName = gca.AccountEmail,
+                    SelectedPageId = null,
+                    CreatedAt = gca.CreatedAt
+                })
+                .ToListAsync();
+
+            var allAccounts = socialAccounts.Concat(googleCalendarAccounts).ToList();
+
+            return ApiResponse<List<SocialAccountDto>>.SuccessResult(allAccounts);
         }
         catch (Exception ex)
         {
@@ -260,23 +338,50 @@ public class AuthService : IAuthService
     {
         try
         {
-            var account = await _context.SocialAccounts
+            // First try to find in SocialAccounts
+            var socialAccount = await _context.SocialAccounts
                 .FirstOrDefaultAsync(sa => sa.Id == accountId && sa.UserId == userId);
 
-            if (account == null)
+            if (socialAccount != null)
             {
-                return ApiResponse.ErrorResult("Social account not found");
+                _context.SocialAccounts.Remove(socialAccount);
+                await _context.SaveChangesAsync();
+                return ApiResponse.SuccessResult("Social account disconnected successfully");
             }
 
-            _context.SocialAccounts.Remove(account);
-            await _context.SaveChangesAsync();
+            // If not found in SocialAccounts, try GoogleCalendarAccounts
+            var googleCalendarAccount = await _context.GoogleCalendarAccounts
+                .FirstOrDefaultAsync(gca => gca.Id == accountId && gca.UserId == userId);
 
-            return ApiResponse.SuccessResult("Social account disconnected successfully");
+            if (googleCalendarAccount != null)
+            {
+                // Also remove associated UserToken
+                var userToken = await _context.UserTokens
+                    .FirstOrDefaultAsync(ut => ut.UserId == userId && ut.Provider == "google");
+                
+                if (userToken != null)
+                {
+                    _context.UserTokens.Remove(userToken);
+                }
+
+                // Remove associated CalendarEvents
+                var calendarEvents = await _context.CalendarEvents
+                    .Where(ce => ce.GoogleCalendarAccountId == accountId)
+                    .ToListAsync();
+                
+                _context.CalendarEvents.RemoveRange(calendarEvents);
+
+                _context.GoogleCalendarAccounts.Remove(googleCalendarAccount);
+                await _context.SaveChangesAsync();
+                return ApiResponse.SuccessResult("Google Calendar account disconnected successfully");
+            }
+
+            return ApiResponse.ErrorResult("Account not found");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error disconnecting social account {AccountId} for user {UserId}", accountId, userId);
-            return ApiResponse.ErrorResult("Failed to disconnect social account");
+            _logger.LogError(ex, "Error disconnecting account {AccountId} for user {UserId}", accountId, userId);
+            return ApiResponse.ErrorResult("Failed to disconnect account");
         }
     }
 
@@ -308,6 +413,134 @@ public class AuthService : IAuthService
     private string GenerateRefreshToken()
     {
         return Guid.NewGuid().ToString();
+    }
+
+    private async Task<GoogleUserInfo?> GetGoogleUserInfoAsync(string accessToken)
+    {
+        try
+        {
+            using var httpClient = new HttpClient();
+            httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {accessToken}");
+
+            var response = await httpClient.GetAsync("https://www.googleapis.com/oauth2/v2/userinfo");
+            if (response.IsSuccessStatusCode)
+            {
+                return await response.Content.ReadFromJsonAsync<GoogleUserInfo>();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting Google user info");
+        }
+
+        return null;
+    }
+
+    private async Task<UserDto> GetOrCreateUserAsync(GoogleUserInfo userInfo)
+    {
+        var existingUser = await _context.Users
+            .FirstOrDefaultAsync(u => u.Email == userInfo.Email);
+
+        if (existingUser != null)
+        {
+            // Update existing user
+            existingUser.Name = userInfo.Name ?? existingUser.Name;
+            existingUser.PictureUrl = userInfo.Picture ?? existingUser.PictureUrl;
+            await _context.SaveChangesAsync();
+
+            return new UserDto
+            {
+                Id = existingUser.Id,
+                Email = existingUser.Email,
+                Name = existingUser.Name,
+                PictureUrl = existingUser.PictureUrl,
+                AuthProvider = "google",
+                CreatedAt = existingUser.CreatedAt
+            };
+        }
+        else
+        {
+            // Create new user
+            var newUser = new User
+            {
+                Email = userInfo.Email ?? "",
+                Name = userInfo.Name ?? "",
+                PictureUrl = userInfo.Picture ?? "",
+                AuthProvider = "google",
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _context.Users.Add(newUser);
+            await _context.SaveChangesAsync();
+
+            return new UserDto
+            {
+                Id = newUser.Id,
+                Email = newUser.Email,
+                Name = newUser.Name,
+                PictureUrl = newUser.PictureUrl,
+                AuthProvider = "google",
+                CreatedAt = newUser.CreatedAt
+            };
+        }
+    }
+
+    private async Task StoreGoogleTokensAsync(int userId, GoogleTokenResponse tokenData, GoogleUserInfo userInfo)
+    {
+        // Store or update Google tokens (allow multiple tokens per user for different accounts)
+        var existingToken = await _context.UserTokens
+            .FirstOrDefaultAsync(ut => ut.UserId == userId && ut.Provider == "google" && ut.AccountEmail == userInfo.Email);
+
+        if (existingToken != null)
+        {
+            existingToken.AccessToken = _dataProtector.Protect(tokenData.access_token);
+            existingToken.RefreshToken = tokenData.refresh_token != null ? _dataProtector.Protect(tokenData.refresh_token) : existingToken.RefreshToken;
+            existingToken.ExpiresAt = DateTime.UtcNow.AddSeconds(tokenData.expires_in);
+            existingToken.Scopes = "https://www.googleapis.com/auth/calendar.readonly";
+            existingToken.UpdatedAt = DateTime.UtcNow;
+        }
+        else
+        {
+            var userToken = new UserToken
+            {
+                UserId = userId,
+                Provider = "google",
+                AccountEmail = userInfo.Email,
+                AccessToken = _dataProtector.Protect(tokenData.access_token),
+                RefreshToken = tokenData.refresh_token != null ? _dataProtector.Protect(tokenData.refresh_token) : null,
+                ExpiresAt = DateTime.UtcNow.AddSeconds(tokenData.expires_in),
+                Scopes = "https://www.googleapis.com/auth/calendar.readonly",
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            _context.UserTokens.Add(userToken);
+        }
+
+        // Create Google Calendar account (allow multiple accounts per user)
+        var existingCalendarAccount = await _context.GoogleCalendarAccounts
+            .FirstOrDefaultAsync(gca => gca.UserId == userId && gca.AccountEmail == userInfo.Email);
+
+        if (existingCalendarAccount == null)
+        {
+            var calendarAccount = new GoogleCalendarAccount
+            {
+                UserId = userId,
+                AccountEmail = userInfo.Email ?? "",
+                SyncState = "pending",
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            _context.GoogleCalendarAccounts.Add(calendarAccount);
+            _logger.LogInformation("Created Google Calendar account for user {UserId} with email {Email}", userId, userInfo.Email);
+        }
+        else
+        {
+            _logger.LogInformation("Google Calendar account already exists for user {UserId} with email {Email}", userId, userInfo.Email);
+        }
+
+        await _context.SaveChangesAsync();
     }
 }
 

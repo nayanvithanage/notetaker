@@ -14,13 +14,33 @@ export class MeetingService {
     return this.apiService.get<Meeting[]>(`/meetings?type=${type}`);
   }
 
+  getCalendarEvents(from?: Date, to?: Date): Observable<ApiResponse<any[]>> {
+    const params: any = {};
+    if (from) params.from = from.toISOString();
+    if (to) params.to = to.toISOString();
+    
+    return this.apiService.get<any[]>('/calendar/events', params);
+  }
+
+  connectGoogleCalendar(code: string, state: string): Observable<ApiResponse<any>> {
+    return this.apiService.post('/calendar/google/connect', {
+      code,
+      state
+    });
+  }
+
+  syncCalendarEvents(calendarAccountId: number): Observable<ApiResponse<any>> {
+    return this.apiService.post('/calendar/sync', {
+      calendarAccountId
+    });
+  }
+
   getMeeting(id: number): Observable<ApiResponse<MeetingDetail>> {
     return this.apiService.get<MeetingDetail>(`/meetings/${id}`);
   }
 
-  toggleNotetaker(calendarEventId: string, enabled: boolean): Observable<ApiResponse<any>> {
-    return this.apiService.post('/meetings/toggle-notetaker', {
-      calendarEventId,
+  toggleNotetaker(calendarEventId: number, enabled: boolean): Observable<ApiResponse<any>> {
+    return this.apiService.post(`/calendar/events/${calendarEventId}/notetaker:toggle`, {
       enabled
     });
   }

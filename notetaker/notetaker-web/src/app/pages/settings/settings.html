@@ -114,16 +114,50 @@
                 <mat-icon>event</mat-icon>
                 <div>
                   <h4>Google Calendar</h4>
-                  <p>Sync meetings and events</p>
+                  <p>Sync meetings and events from multiple Google accounts</p>
                 </div>
               </div>
               <div class="integration-actions">
-                <mat-slide-toggle [(ngModel)]="integrationSettings.googleCalendar"></mat-slide-toggle>
-                <button mat-button (click)="connectGoogleCalendar()">
-                  <mat-icon>settings</mat-icon>
-                  <span>Configure</span>
+                <button mat-raised-button color="primary" (click)="connectGoogleCalendar()">
+                  <mat-icon>add</mat-icon>
+                  <span>Add Google Account</span>
                 </button>
               </div>
+            </div>
+            
+            <!-- Connected Google Accounts -->
+            <div class="connected-accounts" *ngIf="googleAccounts.length > 0">
+              <h4>Connected Google Accounts</h4>
+              <div class="account-list">
+                <div class="account-item" *ngFor="let account of googleAccounts">
+                  <div class="account-info">
+                    <mat-icon>account_circle</mat-icon>
+                    <div>
+                      <h5>{{ account.displayName || account.accountId }}</h5>
+                      <p>{{ account.accountId }}</p>
+                    </div>
+                  </div>
+                  <div class="account-actions">
+                    <button mat-button (click)="syncGoogleAccount(account.id)">
+                      <mat-icon>sync</mat-icon>
+                      <span>Sync</span>
+                    </button>
+                    <button mat-button color="warn" (click)="disconnectGoogleAccount(account.id)">
+                      <mat-icon>link_off</mat-icon>
+                      <span>Disconnect</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="no-accounts" *ngIf="googleAccounts.length === 0 && !isLoadingAccounts">
+              <p>No Google accounts connected. Click "Add Google Account" to get started.</p>
+            </div>
+            
+            <div class="loading-accounts" *ngIf="isLoadingAccounts">
+              <mat-icon>refresh</mat-icon>
+              <span>Loading accounts...</span>
             </div>
             
             <div class="integration-item">
