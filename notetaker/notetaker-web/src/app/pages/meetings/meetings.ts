@@ -106,7 +106,7 @@ export class MeetingsComponent implements OnInit {
         attendees: ['john.doe@company.com', 'jane.smith@company.com', 'bob.wilson@company.com'],
         notetakerEnabled: true,
         status: 'scheduled',
-        calendarEventId: 'cal_event_1',
+        calendarEventId: '1',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       },
@@ -121,7 +121,7 @@ export class MeetingsComponent implements OnInit {
         attendees: ['alice.johnson@company.com', 'charlie.brown@company.com'],
         notetakerEnabled: false,
         status: 'scheduled',
-        calendarEventId: 'cal_event_2',
+        calendarEventId: '2',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }
@@ -140,7 +140,7 @@ export class MeetingsComponent implements OnInit {
         attendees: ['client@example.com', 'sales@company.com'],
         notetakerEnabled: true,
         status: 'ready',
-        calendarEventId: 'cal_event_3',
+        calendarEventId: '3',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       },
@@ -154,7 +154,7 @@ export class MeetingsComponent implements OnInit {
         attendees: ['dev.team@company.com'],
         notetakerEnabled: true,
         status: 'processing',
-        calendarEventId: 'cal_event_4',
+        calendarEventId: '4',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }
@@ -260,6 +260,13 @@ export class MeetingsComponent implements OnInit {
       meeting.notetakerEnabled = originalState;
       console.error('Error toggling notetaker:', error);
       
+      // Log detailed error information
+      if (error && typeof error === 'object' && 'error' in error) {
+        console.error('Error details:', error.error);
+        console.error('Error message:', (error as any).error?.message);
+        console.error('Error status:', (error as any).status);
+      }
+      
       // Show user-friendly error message
       alert(`Failed to ${enabled ? 'enable' : 'disable'} notetaker. Please try again.`);
     } finally {
@@ -307,7 +314,29 @@ export class MeetingsComponent implements OnInit {
   }
 
   viewMeeting(meeting: Meeting) {
-    this.router.navigate(['/meetings', meeting.id]);
+    console.log('=== VIEW MEETING DEBUG ===');
+    console.log('Navigating to meeting details for:', meeting);
+    console.log('Meeting ID:', meeting.id, 'Type:', typeof meeting.id);
+    console.log('Calendar Event ID:', meeting.calendarEventId, 'Type:', typeof meeting.calendarEventId);
+    console.log('Meeting title:', meeting.title);
+    console.log('Meeting status:', meeting.status);
+    
+    // Prefer meeting.id; if missing, fall back to calendarEventId route with a query param
+    if (meeting.id && !isNaN(meeting.id)) {
+      console.log('Navigating to route: /meetings/' + meeting.id);
+      this.router.navigate(['/meetings', meeting.id]);
+      return;
+    }
+
+    const calendarEventNumericId = parseInt(meeting.calendarEventId);
+    if (!isNaN(calendarEventNumericId) && calendarEventNumericId > 0) {
+      console.warn('Falling back to calendarEventId navigation for details:', calendarEventNumericId);
+      this.router.navigate(['/meetings', 'event', calendarEventNumericId]);
+      return;
+    }
+
+    console.error('No valid identifier available for navigation', meeting);
+    alert('Unable to view meeting details: No valid identifiers found');
   }
 
   async generateContent(meeting: Meeting) {
@@ -339,8 +368,14 @@ export class MeetingsComponent implements OnInit {
     console.log('Event meetingStatus:', event.meetingStatus);
     console.log('Event meetingId:', event.meetingId);
     
+    // Ensure we have a valid meeting ID from the backend. If missing, disable details view.
+    const meetingId = event.meetingId;
+    if (!meetingId) {
+      console.warn('No meeting ID found in calendar event. Details view will be disabled.', event);
+    }
+    
     const meeting: Meeting = {
-      id: event.meetingId || event.id, // Use meetingId if available, otherwise use event.id
+      id: meetingId ? parseInt(meetingId.toString()) : 0, // 0 when not available so UI can hide actions
       title: event.title,
       description: event.description || '',
       startsAt: event.startsAt,

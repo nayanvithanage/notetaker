@@ -82,7 +82,6 @@ public class NotetakerCalendarService : ICalendarService
             if (existingToken != null)
             {
                 // Update existing token
-                _logger.LogInformation("Updating existing token for user {UserId}, account {AccountEmail}", userId, userInfo.Email);
                 existingToken.AccessToken = _dataProtector.Protect(tokenData.access_token);
                 existingToken.RefreshToken = tokenData.refresh_token != null ? _dataProtector.Protect(tokenData.refresh_token) : existingToken.RefreshToken;
                 existingToken.ExpiresAt = DateTime.UtcNow.AddSeconds(tokenData.expires_in);
@@ -91,7 +90,6 @@ public class NotetakerCalendarService : ICalendarService
             else
             {
                 // Create new token
-                _logger.LogInformation("Creating new token for user {UserId}, account {AccountEmail}", userId, userInfo.Email);
                 var userToken = new UserToken
                 {
                     UserId = userId,
@@ -116,7 +114,7 @@ public class NotetakerCalendarService : ICalendarService
             if (existingAccount != null)
             {
                 // Update existing account
-                _logger.LogInformation("Updating existing calendar account for user {UserId}, account {AccountEmail}", userId, userInfo.Email);
+                _logger.LogInformation("Updating existing calendar account for account {AccountEmail}", userInfo.Email);
                 existingAccount.SyncState = "pending";
                 existingAccount.UpdatedAt = DateTime.UtcNow;
                 calendarAccount = existingAccount;
@@ -124,7 +122,7 @@ public class NotetakerCalendarService : ICalendarService
             else
             {
                 // Create new calendar account
-                _logger.LogInformation("Creating new calendar account for user {UserId}, account {AccountEmail}", userId, userInfo.Email);
+                _logger.LogInformation("Creating new calendar account for account {AccountEmail}", userInfo.Email);
                 calendarAccount = new GoogleCalendarAccount
                 {
                     UserId = userId,
@@ -144,7 +142,7 @@ public class NotetakerCalendarService : ICalendarService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error connecting Google Calendar for user {UserId}", userId);
+            _logger.LogError(ex, "Error connecting Google Calendar");
             return ApiResponse.ErrorResult("Failed to connect Google Calendar");
         }
     }
@@ -213,7 +211,6 @@ public class NotetakerCalendarService : ICalendarService
     {
         try
         {
-            _logger.LogInformation("Starting calendar sync for user {UserId}, account {AccountId}", userId, calendarAccountId);
             
             var calendarAccount = await _context.GoogleCalendarAccounts
                 .FirstOrDefaultAsync(gca => gca.Id == calendarAccountId && gca.UserId == userId);
@@ -234,7 +231,6 @@ public class NotetakerCalendarService : ICalendarService
                 return ApiResponse.ErrorResult($"Google token not found for account {calendarAccount.AccountEmail}. Please reconnect your Google account.");
             }
 
-            _logger.LogInformation("Found Google token for user {UserId}, expires at {ExpiresAt}", userId, userToken.ExpiresAt);
 
             // Check if token is expired
             if (userToken.ExpiresAt <= DateTime.UtcNow)
@@ -247,13 +243,11 @@ public class NotetakerCalendarService : ICalendarService
             var service = CreateGoogleCalendarService(accessToken);
 
             var request = service.Events.List("primary");
-            request.TimeMin = DateTime.UtcNow.AddDays(-7);
-            request.TimeMax = DateTime.UtcNow.AddDays(30);
+            request.TimeMinDateTimeOffset = DateTimeOffset.UtcNow.AddDays(-7);
+            request.TimeMaxDateTimeOffset = DateTimeOffset.UtcNow.AddDays(30);
             request.SingleEvents = true;
             request.OrderBy = Google.Apis.Calendar.v3.EventsResource.ListRequest.OrderByEnum.StartTime;
 
-            _logger.LogInformation("Calling Google Calendar API for user {UserId}, time range: {TimeMin} to {TimeMax}", 
-                userId, request.TimeMin, request.TimeMax);
 
             Google.Apis.Calendar.v3.Data.Events events;
             try
@@ -271,8 +265,6 @@ public class NotetakerCalendarService : ICalendarService
                 return ApiResponse.ErrorResult($"Error calling Google Calendar API: {ex.Message}");
             }
             
-            _logger.LogInformation("Google Calendar API returned {EventCount} events for user {UserId}", 
-                events.Items?.Count ?? 0, userId);
 
             var processedCount = 0;
             var newEventCount = 0;
@@ -280,7 +272,7 @@ public class NotetakerCalendarService : ICalendarService
 
             foreach (var eventItem in events.Items ?? new List<Event>())
             {
-                if (eventItem.Start?.DateTime == null) continue;
+                if (eventItem.Start?.DateTimeDateTimeOffset == null) continue;
 
                 var existingEvent = await _context.CalendarEvents
                     .FirstOrDefaultAsync(ce => ce.ExternalEventId == eventItem.Id && ce.UserId == userId);
@@ -293,14 +285,14 @@ public class NotetakerCalendarService : ICalendarService
                     eventItem.Summary, joinUrl ?? "null", platform);
 
                 // Convert DateTime to UTC to avoid PostgreSQL timezone issues
-                var startTime = eventItem.Start.DateTime.Value.Kind == DateTimeKind.Utc 
-                    ? eventItem.Start.DateTime.Value 
-                    : DateTime.SpecifyKind(eventItem.Start.DateTime.Value, DateTimeKind.Utc);
-                
-                var endTime = eventItem.End?.DateTime != null 
-                    ? (eventItem.End.DateTime.Value.Kind == DateTimeKind.Utc 
-                        ? eventItem.End.DateTime.Value 
-                        : DateTime.SpecifyKind(eventItem.End.DateTime.Value, DateTimeKind.Utc))
+                var startTime = eventItem.Start.DateTimeDateTimeOffset.Value.DateTime.Kind == DateTimeKind.Utc 
+                    ? eventItem.Start.DateTimeDateTimeOffset.Value.DateTime 
+                    : DateTime.SpecifyKind(eventItem.Start.DateTimeDateTimeOffset.Value.DateTime, DateTimeKind.Utc);
+
+                var endTime = eventItem.End?.DateTimeDateTimeOffset != null 
+                    ? (eventItem.End.DateTimeDateTimeOffset.Value.DateTime.Kind == DateTimeKind.Utc 
+                        ? eventItem.End.DateTimeDateTimeOffset.Value.DateTime 
+                        : DateTime.SpecifyKind(eventItem.End.DateTimeDateTimeOffset.Value.DateTime, DateTimeKind.Utc))
                     : startTime.AddHours(1);
 
                 if (existingEvent == null)
@@ -412,6 +404,7 @@ public class NotetakerCalendarService : ICalendarService
 
     public async Task<ApiResponse> ToggleNotetakerAsync(int userId, int calendarEventId, bool enabled)
     {
+        using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
             var calendarEvent = await _context.CalendarEvents
@@ -436,30 +429,34 @@ public class NotetakerCalendarService : ICalendarService
                 if (existingMeeting != null)
                 {
                     _logger.LogInformation("Bot already exists for calendar event {CalendarEventId}, no need to create a new one", calendarEventId);
+                    await transaction.CommitAsync();
                     return ApiResponse.SuccessResult("Notetaker already enabled for this meeting");
                 }
                 
                 _logger.LogInformation("No existing bot found for calendar event {CalendarEventId}, creating new bot", calendarEventId);
                 
-                // Schedule Recall bot synchronously - this method will handle duplicate prevention
-                var botResult = await ScheduleRecallBotAsync(userId, calendarEventId);
+                // Schedule Recall bot with existing transaction - this method will handle duplicate prevention
+                var botResult = await ScheduleRecallBotAsync(userId, calendarEventId, transaction);
                 if (!botResult.Success)
                 {
                     _logger.LogError("Bot creation failed: {ErrorMessage}", botResult.Message);
                     // Revert the notetaker enabled state if bot creation failed
                     calendarEvent.NotetakerEnabled = false;
                     await _context.SaveChangesAsync();
+                    await transaction.RollbackAsync();
                     return ApiResponse.ErrorResult($"Failed to create bot: {botResult.Message}");
                 }
                 else
                 {
                     _logger.LogInformation("Bot created successfully for calendar event {CalendarEventId}", calendarEventId);
+                    await transaction.CommitAsync();
                 }
             }
             else if (enabled && string.IsNullOrEmpty(calendarEvent.JoinUrl))
             {
                 _logger.LogInformation("Notetaker enabled for calendar event {CalendarEventId} but no join URL available - bot will be created when URL becomes available", calendarEventId);
                 // Allow enabling notetaker even without join URL - the background job will create a bot when URL becomes available
+                await transaction.CommitAsync();
             }
             else if (!enabled)
             {
@@ -492,7 +489,8 @@ public class NotetakerCalendarService : ICalendarService
                     }
                 }
                 
-                    await _context.SaveChangesAsync();
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
             }
 
             return ApiResponse.SuccessResult($"Notetaker {(enabled ? "enabled" : "disabled")} successfully");
@@ -500,6 +498,7 @@ public class NotetakerCalendarService : ICalendarService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error toggling notetaker for calendar event {CalendarEventId}", calendarEventId);
+            await transaction.RollbackAsync();
             return ApiResponse.ErrorResult("Failed to toggle notetaker");
         }
     }
@@ -513,11 +512,25 @@ public class NotetakerCalendarService : ICalendarService
     {
         try
         {
-            _logger.LogInformation("Starting bot creation for calendar event {CalendarEventId}, user {UserId}", calendarEventId, userId);
             
             // Use existing transaction or create a new one
             var shouldCreateTransaction = existingTransaction == null;
-            var transaction = existingTransaction ?? await _context.Database.BeginTransactionAsync();
+            IDbContextTransaction? transaction = existingTransaction;
+            
+            if (shouldCreateTransaction)
+            {
+                // Check if the context is already in a transaction
+                if (_context.Database.CurrentTransaction != null)
+                {
+                    // Use the existing transaction instead of creating a new one
+                    transaction = _context.Database.CurrentTransaction;
+                    shouldCreateTransaction = false;
+                }
+                else
+                {
+                    transaction = await _context.Database.BeginTransactionAsync();
+                }
+            }
             
             try
             {
@@ -583,7 +596,7 @@ public class NotetakerCalendarService : ICalendarService
                         else
                         {
                             existingMeeting.RecallBotId = existingBotForUrl.RecallBotId;
-                            existingMeeting.Status = existingBotForUrl.Status;
+                            existingMeeting.Status = existingBotForUrl.Status ?? "scheduled";
                             existingMeeting.UpdatedAt = DateTime.UtcNow;
                         }
                         
@@ -660,8 +673,6 @@ public class NotetakerCalendarService : ICalendarService
                     response = await httpClient.PostAsJsonAsync($"{_recallAiSettings.BaseUrl}/bot", botRequest);
                     responseContent = await response.Content.ReadAsStringAsync();
 
-                    _logger.LogInformation("Recall.ai API response (attempt {Attempt}): Status {StatusCode}, Content: {Content}", 
-                        retryCount + 1, response.StatusCode, responseContent);
                     
                     if (response.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable) // 507
                     {
@@ -699,9 +710,6 @@ public class NotetakerCalendarService : ICalendarService
             {
                 var botResponse = System.Text.Json.JsonSerializer.Deserialize<RecallBotResponse>(responseContent);
                 
-                _logger.LogInformation("Bot created successfully with ID: {BotId}", botResponse?.Id);
-                _logger.LogInformation("Full bot response: {BotResponse}", System.Text.Json.JsonSerializer.Serialize(botResponse));
-                _logger.LogInformation("Raw response content: {ResponseContent}", responseContent);
                 
                 // Validate that we got a valid bot ID
                 if (string.IsNullOrEmpty(botResponse?.Id))
@@ -1066,6 +1074,392 @@ public class NotetakerCalendarService : ICalendarService
     /// </summary>
     /// <param name="userId">User ID</param>
     /// <returns>Number of bots synced</returns>
+
+    public async Task<ApiResponse> FindAndLinkExistingBotsForCalendarEventAsync(int userId, int calendarEventId)
+    {
+        try
+        {
+            _logger.LogInformation("Finding existing bots for calendar event {CalendarEventId} and user {UserId}", calendarEventId, userId);
+            
+            // Get the calendar event
+            var calendarEvent = await _context.CalendarEvents
+                .Include(ce => ce.Meetings)
+                .FirstOrDefaultAsync(ce => ce.Id == calendarEventId && ce.UserId == userId);
+
+            if (calendarEvent == null)
+            {
+                _logger.LogWarning("Calendar event {CalendarEventId} not found for user {UserId}", calendarEventId, userId);
+                return ApiResponse.ErrorResult("Calendar event not found");
+            }
+
+            if (string.IsNullOrEmpty(calendarEvent.JoinUrl))
+            {
+                _logger.LogWarning("Calendar event {CalendarEventId} has no join URL", calendarEventId);
+                return ApiResponse.ErrorResult("Calendar event has no join URL");
+            }
+
+            // Check if we already have a meeting with a bot for this calendar event
+            var existingMeeting = calendarEvent.Meetings?.FirstOrDefault();
+            if (existingMeeting?.RecallBotId != null)
+            {
+                _logger.LogInformation("Calendar event {CalendarEventId} already has a linked bot: {BotId}", 
+                    calendarEventId, existingMeeting.RecallBotId);
+                return ApiResponse.SuccessResult($"Calendar event already has a bot linked: {existingMeeting.RecallBotId}");
+            }
+
+            // Search for existing bots using the RecallAiService
+            _logger.LogInformation("Searching for existing bots with meeting URL: {JoinUrl}", calendarEvent.JoinUrl);
+            var botsResponse = await _recallAiService.GetBotsByMeetingUrlAsync(calendarEvent.JoinUrl);
+            
+            if (!botsResponse.Success || botsResponse.Data == null || !botsResponse.Data.Any())
+            {
+                _logger.LogInformation("No existing bots found for calendar event {CalendarEventId}", calendarEventId);
+                return ApiResponse.SuccessResult("No existing bots with recordings found for this calendar event");
+            }
+
+            // Get the best bot (same logic as MeetingService)
+            var bestBot = botsResponse.Data
+                .Where(bot => bot.HasRecording) // Only bots with recordings
+                .OrderByDescending(bot => bot.Status == "done") // Prefer completed bots
+                .ThenByDescending(bot => bot.RecordingDuration) // Then by recording length
+                .ThenByDescending(bot => bot.Start_time) // Then by most recent
+                .FirstOrDefault();
+
+            if (bestBot == null)
+            {
+                _logger.LogInformation("No suitable bots found for calendar event {CalendarEventId}", calendarEventId);
+                return ApiResponse.SuccessResult("No existing bots with recordings found for this calendar event");
+            }
+
+            _logger.LogInformation("Found best bot for calendar event {CalendarEventId}: {BotId} (Status: {Status}, Duration: {Duration}s)", 
+                calendarEventId, bestBot.Id, bestBot.Status, bestBot.RecordingDuration);
+
+            // Create or update the meeting record
+            if (existingMeeting != null)
+            {
+                // Update existing meeting
+                existingMeeting.RecallBotId = bestBot.Id;
+                existingMeeting.Status = bestBot.Status ?? "scheduled";
+                existingMeeting.StartedAt = bestBot.Start_time;
+                existingMeeting.EndedAt = bestBot.End_time;
+                existingMeeting.UpdatedAt = DateTime.UtcNow;
+                
+                _logger.LogInformation("Updated existing meeting {MeetingId} with bot {BotId}", 
+                    existingMeeting.Id, bestBot.Id);
+            }
+            else
+            {
+                // Create new meeting record
+                var newMeeting = new Meeting
+                {
+                    UserId = userId,
+                    CalendarEventId = calendarEventId,
+                    RecallBotId = bestBot.Id,
+                    Status = bestBot.Status,
+                    Platform = calendarEvent.Platform,
+                    StartedAt = bestBot.Start_time,
+                    EndedAt = bestBot.End_time,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                _context.Meetings.Add(newMeeting);
+                _logger.LogInformation("Created new meeting record for calendar event {CalendarEventId} with bot {BotId}", 
+                    calendarEventId, bestBot.Id);
+            }
+
+            await _context.SaveChangesAsync();
+
+            // If the bot is "done", trigger transcript fetching
+            if (bestBot.Status == "done")
+            {
+                _logger.LogInformation("Bot {BotId} is done, triggering transcript fetch", bestBot.Id);
+                var meetingId = existingMeeting?.Id ?? 
+                    (await _context.Meetings.FirstOrDefaultAsync(m => m.CalendarEventId == calendarEventId && m.UserId == userId))?.Id;
+                
+                if (meetingId.HasValue)
+                {
+                    try
+                    {
+                        await _recallAiService.FetchTranscriptAsync(meetingId.Value);
+                        _logger.LogInformation("Transcript fetch triggered for meeting {MeetingId}", meetingId.Value);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to fetch transcript for meeting {MeetingId}, but bot linking succeeded", meetingId.Value);
+                    }
+                }
+            }
+
+            var durationText = bestBot.RecordingDuration?.TotalSeconds > 0 ? $" ({bestBot.RecordingDuration.Value.TotalSeconds:F0}s recording)" : "";
+            return ApiResponse.SuccessResult($"Successfully linked existing bot: {bestBot.Id}{durationText}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error finding existing bots for calendar event {CalendarEventId}", calendarEventId);
+            return ApiResponse.ErrorResult("Failed to find existing bots");
+        }
+    }
+
+    public async Task<ApiResponse> DeltaSyncBotsAsync(int userId)
+    {
+        try
+        {
+            _logger.LogInformation("Starting delta sync for user {UserId}", userId);
+            
+            // Get all bots from Recall.ai
+            var botsResponse = await _recallAiService.GetAllBotsAsync();
+            if (!botsResponse.Success)
+            {
+                return ApiResponse.ErrorResult($"Failed to fetch bots from Recall.ai: {botsResponse.Message}");
+            }
+
+            var bots = botsResponse.Data ?? new List<RecallBotStatus>();
+            _logger.LogInformation("Retrieved {BotCount} bots from Recall.ai", bots.Count);
+            
+            // Debug: Log the first bot structure to understand the data format
+            if (bots.Count > 0)
+            {
+                var firstBot = bots.First();
+                _logger.LogInformation("First bot structure - Id: {Id}, Status: {Status}, Meeting_url: {MeetingUrl}, Start_time: {StartTime}, End_time: {EndTime}", 
+                    firstBot.Id, firstBot.Status, firstBot.Meeting_url, firstBot.Start_time, firstBot.End_time);
+            }
+
+            if (bots.Count == 0)
+            {
+                _logger.LogWarning("No bots found from Recall.ai API. This could be because the /bots endpoint is not available or requires different permissions.");
+                
+                // Fallback: Try to create meeting records for calendar events that have join URLs but no meetings
+                return await CreateMissingMeetingRecordsAsync(userId);
+            }
+
+            var syncedCount = 0;
+            var createdCount = 0;
+            var updatedCount = 0;
+            var errors = new List<string>();
+            var processedCalendarEvents = new HashSet<int>(); // Track processed calendar events
+
+            // Get all calendar events for this user that have join URLs
+            var calendarEvents = await _context.CalendarEvents
+                .Where(ce => ce.UserId == userId && !string.IsNullOrEmpty(ce.JoinUrl))
+                .ToListAsync();
+
+            _logger.LogInformation("Found {EventCount} calendar events with join URLs for user {UserId}", 
+                calendarEvents.Count, userId);
+
+            // Sort bots to prioritize those with transcripts
+            var sortedBots = bots.OrderByDescending(b => b.HasTranscript).ThenByDescending(b => b.Start_time).ToList();
+            _logger.LogInformation("Processing {BotCount} bots, {TranscriptCount} with transcripts available", 
+                sortedBots.Count, sortedBots.Count(b => b.HasTranscript));
+
+            // Log each bot's transcript status for debugging
+            foreach (var bot in sortedBots)
+            {
+                _logger.LogInformation("Bot {BotId}: HasTranscript={HasTranscript}, Status={Status}, RecordingsCount={RecordingsCount}", 
+                    bot.Id, bot.HasTranscript, bot.CurrentStatus, bot.Recordings?.Count ?? 0);
+            }
+
+            foreach (var bot in sortedBots)
+            {
+                try
+                {
+                    // Extract bot information from RecallBotStatus object
+                    var botId = bot.Id;
+                    var meetingUrl = bot.Meeting_url?.Meeting_id; // Extract meeting_id from the meeting_url object
+                    var platform = bot.Meeting_url?.Platform;
+                    var status = bot.CurrentStatus;
+
+                    if (string.IsNullOrEmpty(botId) || string.IsNullOrEmpty(meetingUrl))
+                    {
+                        _logger.LogWarning("Skipping bot with missing ID or meeting URL. BotId: {BotId}, MeetingUrl: {MeetingUrl}, Platform: {Platform}", 
+                            botId ?? "null", meetingUrl ?? "null", platform ?? "null");
+                        continue;
+                    }
+
+                    // Find matching calendar event by join URL
+                    var matchingEvent = calendarEvents.FirstOrDefault(ce => 
+                        !string.IsNullOrEmpty(ce.JoinUrl) && 
+                        ce.Platform == platform &&
+                        (ce.JoinUrl.Contains(meetingUrl) || ce.JoinUrl.Equals(meetingUrl, StringComparison.OrdinalIgnoreCase)));
+
+                    if (matchingEvent == null)
+                    {
+                        _logger.LogDebug("No matching calendar event found for bot {BotId} with URL {MeetingUrl} and platform {Platform}", 
+                            botId, meetingUrl, platform);
+                        continue;
+                    }
+
+                    // Skip if we've already processed this calendar event
+                    if (processedCalendarEvents.Contains(matchingEvent.Id))
+                    {
+                        _logger.LogDebug("Calendar event {EventId} already processed, skipping bot {BotId}", 
+                            matchingEvent.Id, botId);
+                        continue;
+                    }
+
+                    // Log transcript availability for this bot
+                    if (bot.HasTranscript)
+                    {
+                        _logger.LogInformation("Bot {BotId} has transcript available for calendar event {EventId}", 
+                            botId, matchingEvent.Id);
+                    }
+                    else
+                    {
+                        _logger.LogInformation("Bot {BotId} does NOT have transcript for calendar event {EventId}", 
+                            botId, matchingEvent.Id);
+                    }
+
+                    // Check if meeting already exists for this calendar event
+                    var existingMeeting = await _context.Meetings
+                        .FirstOrDefaultAsync(m => m.CalendarEventId == matchingEvent.Id && m.UserId == userId);
+
+                    if (existingMeeting != null)
+                    {
+                        // Update existing meeting if bot ID is different
+                        if (existingMeeting.RecallBotId != botId)
+                        {
+                            existingMeeting.RecallBotId = botId;
+                            existingMeeting.Status = status ?? "scheduled";
+                            existingMeeting.UpdatedAt = DateTime.UtcNow;
+                            updatedCount++;
+                            _logger.LogInformation("Updated meeting {MeetingId} with bot {BotId} (HasTranscript: {HasTranscript})", 
+                                existingMeeting.Id, botId, bot.HasTranscript);
+                        }
+                        else
+                        {
+                            // Update status if different
+                            var safeStatus = status ?? "scheduled";
+                            if (existingMeeting.Status != safeStatus)
+                            {
+                                existingMeeting.Status = safeStatus;
+                                existingMeeting.UpdatedAt = DateTime.UtcNow;
+                                updatedCount++;
+                                _logger.LogInformation("Updated status for meeting {MeetingId} to {Status}", 
+                                    existingMeeting.Id, safeStatus);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Create new meeting record
+                        var newMeeting = new Meeting
+                        {
+                            UserId = userId,
+                            CalendarEventId = matchingEvent.Id,
+                            RecallBotId = botId,
+                            Status = status ?? "scheduled",
+                            Platform = matchingEvent.Platform,
+                            CreatedAt = DateTime.UtcNow,
+                            UpdatedAt = DateTime.UtcNow
+                        };
+
+                        _context.Meetings.Add(newMeeting);
+                        createdCount++;
+                        _logger.LogInformation("Created new meeting for calendar event {EventId} with bot {BotId} (HasTranscript: {HasTranscript})", 
+                            matchingEvent.Id, botId, bot.HasTranscript);
+                    }
+
+                    // Mark this calendar event as processed
+                    processedCalendarEvents.Add(matchingEvent.Id);
+                    syncedCount++;
+                }
+                catch (Exception ex)
+                {
+                    var errorMsg = $"Error processing bot: {ex.Message}";
+                    errors.Add(errorMsg);
+                    _logger.LogError(ex, "Error processing bot during delta sync");
+                }
+            }
+
+            await _context.SaveChangesAsync();
+
+            var resultMessage = $"Delta sync completed. Synced: {syncedCount}, Created: {createdCount}, Updated: {updatedCount}";
+            if (errors.Any())
+            {
+                resultMessage += $". Errors: {errors.Count}";
+                _logger.LogWarning("Delta sync completed with {ErrorCount} errors", errors.Count);
+            }
+
+            _logger.LogInformation("Delta sync completed for user {UserId}: {ResultMessage}", userId, resultMessage);
+            return ApiResponse.SuccessResult(resultMessage);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during delta sync for user {UserId}", userId);
+            return ApiResponse.ErrorResult($"Delta sync failed: {ex.Message}");
+        }
+    }
+
+    private async Task<ApiResponse> CreateMissingMeetingRecordsAsync(int userId)
+    {
+        try
+        {
+            _logger.LogInformation("Creating missing meeting records for user {UserId}", userId);
+            
+            // Find calendar events that have join URLs but no meeting records
+            var calendarEventsWithoutMeetings = await _context.CalendarEvents
+                .Where(ce => ce.UserId == userId 
+                    && !string.IsNullOrEmpty(ce.JoinUrl)
+                    && !ce.Meetings.Any())
+                .ToListAsync();
+
+            if (calendarEventsWithoutMeetings.Count == 0)
+            {
+                return ApiResponse.SuccessResult("All calendar events already have meeting records. No action needed.");
+            }
+
+            var createdCount = 0;
+            var errors = new List<string>();
+
+            foreach (var calendarEvent in calendarEventsWithoutMeetings)
+            {
+                try
+                {
+                    // Create a meeting record without a bot ID (will be populated later when bot is created)
+                    var meeting = new Meeting
+                    {
+                        UserId = userId,
+                        CalendarEventId = calendarEvent.Id,
+                        RecallBotId = null, // Will be populated when bot is created
+                        Status = "scheduled",
+                        Platform = calendarEvent.Platform,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+
+                    _context.Meetings.Add(meeting);
+                    createdCount++;
+                    
+                    _logger.LogInformation("Created meeting record for calendar event {EventId}: {Title}", 
+                        calendarEvent.Id, calendarEvent.Title);
+                }
+                catch (Exception ex)
+                {
+                    var errorMsg = $"Error creating meeting for event {calendarEvent.Title}: {ex.Message}";
+                    errors.Add(errorMsg);
+                    _logger.LogError(ex, "Error creating meeting record for calendar event {EventId}", calendarEvent.Id);
+                }
+            }
+
+            await _context.SaveChangesAsync();
+
+            var resultMessage = $"Created {createdCount} meeting records for calendar events.";
+            if (errors.Any())
+            {
+                resultMessage += $" {errors.Count} errors occurred.";
+                _logger.LogWarning("Meeting creation completed with {ErrorCount} errors", errors.Count);
+            }
+
+            _logger.LogInformation("Meeting record creation completed for user {UserId}: {ResultMessage}", userId, resultMessage);
+            return ApiResponse.SuccessResult(resultMessage);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating missing meeting records for user {UserId}", userId);
+            return ApiResponse.ErrorResult($"Failed to create meeting records: {ex.Message}");
+        }
+    }
+
 }
 
 public class GoogleTokenResponse

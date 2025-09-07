@@ -3,6 +3,8 @@ using Notetaker.Api.Common;
 using Notetaker.Api.Configuration;
 using Notetaker.Api.Data;
 using Notetaker.Api.Models;
+using Notetaker.Api.DTOs;
+using System.Text;
 
 namespace Notetaker.Api.Services;
 
@@ -232,16 +234,89 @@ public class RecallAiService : IRecallAiService
             httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
             httpClient.DefaultRequestHeaders.Add("User-Agent", "Notetaker-API/1.0");
 
-            var response = await httpClient.GetAsync($"{_recallAiSettings.BaseUrl}/bot/{botId}/transcript");
-            var content = await response.Content.ReadAsStringAsync();
+            // First, get the bot details to access recordings
+            var botResponse = await httpClient.GetAsync($"{_recallAiSettings.BaseUrl}/bot/{botId}/");
+            var botContent = await botResponse.Content.ReadAsStringAsync();
 
-            if (response.IsSuccessStatusCode)
+            _logger.LogInformation("Bot details response: Status {StatusCode}, Content length: {Length} characters", botResponse.StatusCode, botContent?.Length ?? 0);
+
+            if (!botResponse.IsSuccessStatusCode)
             {
-                var transcript = System.Text.Json.JsonSerializer.Deserialize<RecallTranscript>(content);
+                return ApiResponse<RecallTranscript>.ErrorResult($"Failed to get bot details: {botContent}");
+            }
+
+            // Parse bot response to get transcript ID
+            using var botDoc = System.Text.Json.JsonDocument.Parse(botContent);
+            var recordings = botDoc.RootElement.GetProperty("recordings");
+            
+            if (recordings.GetArrayLength() == 0)
+            {
+                return ApiResponse<RecallTranscript>.ErrorResult("No recordings found for this bot");
+            }
+
+            var firstRecording = recordings[0];
+            if (!firstRecording.TryGetProperty("media_shortcuts", out var mediaShortcuts) ||
+                !mediaShortcuts.TryGetProperty("transcript", out var transcriptInfo) ||
+                !transcriptInfo.TryGetProperty("data", out var transcriptDataInfo) ||
+                !transcriptDataInfo.TryGetProperty("id", out var transcriptId))
+            {
+                return ApiResponse<RecallTranscript>.ErrorResult("Transcript ID not found in bot response");
+            }
+
+            // Get fresh download URL using transcript ID
+            var transcriptIdString = transcriptId.GetString();
+            _logger.LogInformation("Getting fresh download URL for transcript ID: {TranscriptId}", transcriptIdString);
+            
+            var transcriptDetailsResponse = await httpClient.GetAsync($"{_recallAiSettings.BaseUrl}/transcript/{transcriptIdString}/");
+            var transcriptDetailsContent = await transcriptDetailsResponse.Content.ReadAsStringAsync();
+            
+            _logger.LogInformation("Transcript details response: Status {StatusCode}, Content length: {Length} characters", 
+                transcriptDetailsResponse.StatusCode, transcriptDetailsContent?.Length ?? 0);
+
+            if (!transcriptDetailsResponse.IsSuccessStatusCode)
+            {
+                return ApiResponse<RecallTranscript>.ErrorResult($"Failed to get transcript details: {transcriptDetailsContent}");
+            }
+
+            // Parse transcript details to get fresh download URL
+            using var transcriptDoc = System.Text.Json.JsonDocument.Parse(transcriptDetailsContent);
+            if (!transcriptDoc.RootElement.TryGetProperty("data", out var transcriptData) ||
+                !transcriptData.TryGetProperty("download_url", out var downloadUrl))
+            {
+                return ApiResponse<RecallTranscript>.ErrorResult("Download URL not found in transcript details");
+            }
+
+            // Download the transcript using the fresh URL
+            var downloadUrlString = downloadUrl.GetString();
+            _logger.LogInformation("Attempting to download transcript from fresh URL: {DownloadUrl}", downloadUrlString);
+            
+            var transcriptResponse = await httpClient.GetAsync(downloadUrlString);
+            var transcriptContent = await transcriptResponse.Content.ReadAsStringAsync();
+            
+            _logger.LogInformation("Transcript download response: Status {StatusCode}, Content length: {Length} characters", 
+                transcriptResponse.StatusCode, transcriptContent?.Length ?? 0);
+
+            if (transcriptResponse.IsSuccessStatusCode)
+            {
+                // Parse the transcript data according to the Recall.ai format
+                var transcriptSegments = System.Text.Json.JsonSerializer.Deserialize<List<RecallTranscriptSegment>>(transcriptContent);
+                
+                // Convert to our internal format
+                var transcript = new RecallTranscript
+                {
+                    Transcript = ConvertTranscriptSegmentsToText(transcriptSegments),
+                    Summary = "Transcript downloaded successfully",
+                    KeyPoints = new List<string>(),
+                    ActionItems = new List<string>(),
+                    MediaUrls = new Dictionary<string, string>()
+                };
+                
                 return ApiResponse<RecallTranscript>.SuccessResult(transcript);
             }
 
-            return ApiResponse<RecallTranscript>.ErrorResult($"Failed to download transcript: {content}");
+            _logger.LogError("Failed to download transcript from S3. Status: {StatusCode}, Content: {Content}", 
+                transcriptResponse.StatusCode, transcriptContent);
+            return ApiResponse<RecallTranscript>.ErrorResult($"Failed to download transcript: {transcriptContent}");
         }
         catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
         {
@@ -260,6 +335,43 @@ public class RecallAiService : IRecallAiService
         }
     }
 
+
+    private string ConvertTranscriptSegmentsToText(List<RecallTranscriptSegment>? segments)
+    {
+        if (segments == null || segments.Count == 0)
+            return string.Empty;
+
+        var result = new StringBuilder();
+        
+        foreach (var segment in segments)
+        {
+            if (segment.Participant != null && !string.IsNullOrEmpty(segment.Participant.Name))
+            {
+                result.AppendLine($"{segment.Participant.Name}:");
+            }
+            
+            if (segment.Words != null)
+            {
+                var words = new List<string>();
+                foreach (var word in segment.Words)
+                {
+                    if (!string.IsNullOrEmpty(word.Text))
+                    {
+                        words.Add(word.Text);
+                    }
+                }
+                if (words.Count > 0)
+                {
+                    result.AppendLine(string.Join(" ", words));
+                }
+            }
+            
+            result.AppendLine(); // Add spacing between participants
+        }
+        
+        return result.ToString().Trim();
+    }
+
     public async Task<ApiResponse<List<RecallBotStatus>>> GetAllBotsAsync()
     {
         try
@@ -272,21 +384,39 @@ public class RecallAiService : IRecallAiService
 
             _logger.LogInformation("Attempting to get all bots from Recall.ai");
 
-            // Try the /bots endpoint
-            var response = await httpClient.GetAsync($"{_recallAiSettings.BaseUrl}/bots");
+            // Try the /bot/ endpoint (singular)
+            var response = await httpClient.GetAsync($"{_recallAiSettings.BaseUrl}/bot/");
             var content = await response.Content.ReadAsStringAsync();
 
-            _logger.LogInformation("Recall.ai /bots endpoint response: Status {StatusCode}, Content: {Content}", response.StatusCode, content);
+            _logger.LogInformation("Recall.ai /bot/ endpoint response: Status {StatusCode}, Content length: {Length} characters", response.StatusCode, content?.Length ?? 0);
 
             if (response.IsSuccessStatusCode)
             {
-                var allBots = System.Text.Json.JsonSerializer.Deserialize<List<RecallBotStatus>>(content) ?? new List<RecallBotStatus>();
-                _logger.LogInformation("Found {Count} total bots from Recall.ai", allBots.Count);
-                return ApiResponse<List<RecallBotStatus>>.SuccessResult(allBots);
+                _logger.LogInformation("Raw Recall.ai response: {Response}", content);
+                
+                // Parse the paginated response structure
+                using var document = System.Text.Json.JsonDocument.Parse(content);
+                
+                // Check if the response has a "results" property (paginated response)
+                if (document.RootElement.TryGetProperty("results", out var resultsArray))
+                {
+                    _logger.LogInformation("Found paginated response with {Count} results", resultsArray.GetArrayLength());
+                    var allBots = System.Text.Json.JsonSerializer.Deserialize<List<RecallBotStatus>>(resultsArray.GetRawText()) ?? new List<RecallBotStatus>();
+                    _logger.LogInformation("Deserialized {Count} bots from paginated response", allBots.Count);
+                    return ApiResponse<List<RecallBotStatus>>.SuccessResult(allBots);
+                }
+                else
+                {
+                    // Try to deserialize as a direct array
+                    _logger.LogInformation("No 'results' property found, trying direct array deserialization");
+                    var allBots = System.Text.Json.JsonSerializer.Deserialize<List<RecallBotStatus>>(content) ?? new List<RecallBotStatus>();
+                    _logger.LogInformation("Deserialized {Count} bots from direct array", allBots.Count);
+                    return ApiResponse<List<RecallBotStatus>>.SuccessResult(allBots);
+                }
             }
             else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
-                _logger.LogWarning("Recall.ai /bots endpoint returned 404 - this endpoint may not be available or may require different permissions");
+                _logger.LogWarning("Recall.ai /bot/ endpoint returned 404 - this endpoint may not be available or may require different permissions");
                 return ApiResponse<List<RecallBotStatus>>.SuccessResult(new List<RecallBotStatus>());
             }
 
@@ -319,33 +449,39 @@ public class RecallAiService : IRecallAiService
             httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
             httpClient.DefaultRequestHeaders.Add("User-Agent", "Notetaker-API/1.0");
 
-            _logger.LogInformation("Attempting to get bots list from Recall.ai for meeting URL: {MeetingUrl}", meetingUrl);
-
-            // Try the /bots endpoint first
-            var response = await httpClient.GetAsync($"{_recallAiSettings.BaseUrl}/bots");
+            // Use the correct /bot/ endpoint for listing bots
+            var response = await httpClient.GetAsync($"{_recallAiSettings.BaseUrl}/bot/");
             var content = await response.Content.ReadAsStringAsync();
-
-            _logger.LogInformation("Recall.ai /bots endpoint response: Status {StatusCode}, Content: {Content}", response.StatusCode, content);
 
             if (response.IsSuccessStatusCode)
             {
-                var allBots = System.Text.Json.JsonSerializer.Deserialize<List<RecallBotStatus>>(content) ?? new List<RecallBotStatus>();
-                
-                // Filter bots by meeting URL
-                var matchingBots = allBots.Where(bot => 
-                    !string.IsNullOrEmpty(bot.Meeting_url) && 
-                    bot.Meeting_url.Equals(meetingUrl, StringComparison.OrdinalIgnoreCase))
-                    .ToList();
+                List<RecallBotStatus> allBots;
+                try
+                {
+                    // Parse the paginated response structure
+                    using var document = System.Text.Json.JsonDocument.Parse(content);
+                    var resultsArray = document.RootElement.GetProperty("results");
+                    allBots = System.Text.Json.JsonSerializer.Deserialize<List<RecallBotStatus>>(resultsArray.GetRawText()) ?? new List<RecallBotStatus>();
+                }
+                catch (System.Text.Json.JsonException ex)
+                {
+                    // Log a sample of the response to understand its structure
+                    var sample = content?.Length > 500 ? content.Substring(0, 500) + "..." : content;
+                    _logger.LogWarning("Failed to deserialize bots list from Recall.ai: {Error}. Response length: {Length} characters. Sample: {Sample}", ex.Message, content?.Length ?? 0, sample);
+                    return ApiResponse<List<RecallBotStatus>>.ErrorResult("Failed to parse bots list from Recall.ai");
+                }
 
-                _logger.LogInformation("Found {Count} existing bots for meeting URL: {MeetingUrl}", matchingBots.Count, meetingUrl);
-                
+                // Filter bots by meeting URL
+                // For now, return all bots since we need to understand the actual response structure
+                // TODO: Implement proper filtering once we understand the response format
+                var matchingBots = allBots.ToList();
+
+
+
                 return ApiResponse<List<RecallBotStatus>>.SuccessResult(matchingBots);
             }
             else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
-                _logger.LogWarning("Recall.ai /bots endpoint returned 404 - this endpoint is not available in the current API version");
-                _logger.LogInformation("Returning empty list as fallback - bots may still exist but cannot be queried via this endpoint");
-                
                 // Return empty list as fallback - we can't query for existing bots
                 return ApiResponse<List<RecallBotStatus>>.SuccessResult(new List<RecallBotStatus>());
             }
@@ -384,7 +520,7 @@ public class RecallAiService : IRecallAiService
             var response = await httpClient.DeleteAsync($"{_recallAiSettings.BaseUrl}/bot/{botId}/");
             var content = await response.Content.ReadAsStringAsync();
 
-            _logger.LogInformation("Recall.ai delete bot response: Status {StatusCode}, Content: {Content}", response.StatusCode, content);
+            _logger.LogInformation("Recall.ai delete bot response: Status {StatusCode}, Content length: {Length} characters", response.StatusCode, content?.Length ?? 0);
 
             if (response.IsSuccessStatusCode)
             {
@@ -494,6 +630,129 @@ public class RecallAiService : IRecallAiService
         {
             _logger.LogError(ex, "Error triggering content generation for meeting {MeetingId}", meetingId);
         }
+    }
+
+    /// <summary>
+    /// Compares two meeting URLs to determine if they represent the same meeting,
+    /// handling variations in subdomains and URL formats
+    /// </summary>
+    /// <param name="url1">First URL to compare</param>
+    /// <param name="url2">Second URL to compare</param>
+    /// <returns>True if URLs represent the same meeting</returns>
+    private bool AreMeetingUrlsEquivalent(string url1, string url2)
+    {
+        if (string.IsNullOrEmpty(url1) || string.IsNullOrEmpty(url2))
+            return false;
+
+        // First try exact match (case insensitive)
+        if (url1.Equals(url2, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        try
+        {
+            var uri1 = new Uri(url1);
+            var uri2 = new Uri(url2);
+
+            // Handle Zoom URL variations
+            if (IsZoomUrl(uri1) && IsZoomUrl(uri2))
+            {
+                return CompareZoomUrls(uri1, uri2);
+            }
+
+            // Handle Google Meet URL variations
+            if (IsGoogleMeetUrl(uri1) && IsGoogleMeetUrl(uri2))
+            {
+                return CompareGoogleMeetUrls(uri1, uri2);
+            }
+
+            // Handle Microsoft Teams URL variations
+            if (IsTeamsUrl(uri1) && IsTeamsUrl(uri2))
+            {
+                return CompareTeamsUrls(uri1, uri2);
+            }
+
+            // For other platforms, compare path and query (ignoring subdomain variations)
+            return uri1.PathAndQuery.Equals(uri2.PathAndQuery, StringComparison.OrdinalIgnoreCase) &&
+                   uri1.Host.Split('.').TakeLast(2).SequenceEqual(uri2.Host.Split('.').TakeLast(2), StringComparer.OrdinalIgnoreCase);
+        }
+        catch (UriFormatException)
+        {
+            // If URL parsing fails, fall back to exact string comparison
+            return url1.Equals(url2, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    private bool IsZoomUrl(Uri uri)
+    {
+        return uri.Host.EndsWith("zoom.us", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool IsGoogleMeetUrl(Uri uri)
+    {
+        return uri.Host.EndsWith("meet.google.com", StringComparison.OrdinalIgnoreCase) ||
+               uri.Host.EndsWith("hangouts.google.com", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool IsTeamsUrl(Uri uri)
+    {
+        return uri.Host.EndsWith("teams.microsoft.com", StringComparison.OrdinalIgnoreCase) ||
+               uri.Host.EndsWith("teams.live.com", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool CompareZoomUrls(Uri uri1, Uri uri2)
+    {
+        // For Zoom URLs, compare the meeting ID and password
+        // Format: https://[subdomain.]zoom.us/j/{meetingId}?pwd={password}
+        
+        var meetingId1 = ExtractZoomMeetingId(uri1);
+        var meetingId2 = ExtractZoomMeetingId(uri2);
+        
+        if (string.IsNullOrEmpty(meetingId1) || string.IsNullOrEmpty(meetingId2))
+            return false;
+
+        if (!meetingId1.Equals(meetingId2, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        // Also compare passwords if present
+        var pwd1 = ExtractQueryParameter(uri1, "pwd");
+        var pwd2 = ExtractQueryParameter(uri2, "pwd");
+        
+        return pwd1.Equals(pwd2, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool CompareGoogleMeetUrls(Uri uri1, Uri uri2)
+    {
+        // For Google Meet URLs, compare the meeting code
+        // Format: https://meet.google.com/{meetingCode}
+        return uri1.PathAndQuery.Equals(uri2.PathAndQuery, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool CompareTeamsUrls(Uri uri1, Uri uri2)
+    {
+        // For Teams URLs, compare the path and query parameters
+        return uri1.PathAndQuery.Equals(uri2.PathAndQuery, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string ExtractZoomMeetingId(Uri uri)
+    {
+        // Extract meeting ID from path like /j/85803707399
+        var pathSegments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        
+        for (int i = 0; i < pathSegments.Length - 1; i++)
+        {
+            if (pathSegments[i].Equals("j", StringComparison.OrdinalIgnoreCase))
+            {
+                return pathSegments[i + 1];
+            }
+        }
+        
+        return string.Empty;
+    }
+
+    private string ExtractQueryParameter(Uri uri, string paramName)
+    {
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        return query[paramName] ?? string.Empty;
     }
 }
 

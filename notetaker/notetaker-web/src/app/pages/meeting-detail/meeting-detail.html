@@ -8,7 +8,7 @@
       <p>{{ meeting.description }}</p>
     </div>
     <div class="header-actions">
-      <button mat-raised-button color="primary" (click)="joinMeeting()" *ngIf="meeting.joinUrl">
+      <button mat-raised-button color="primary" (click)="joinMeeting()" *ngIf="meeting.joinUrl && !isPastMeeting()">
         <mat-icon>video_call</mat-icon>
         <span>Join Meeting</span>
       </button>
@@ -81,27 +81,52 @@
       <div class="tab-content">
         <mat-card class="content-card">
           <mat-card-header>
-            <mat-card-title>Meeting Transcript</mat-card-title>
-            <mat-card-subtitle>AI-generated transcript from the meeting</mat-card-subtitle>
+            <mat-card-title>
+              Meeting Transcript
+              <span *ngIf="meeting.recallBotId" class="bot-id-title">
+                • Bot: <code>{{ meeting.recallBotId }}</code>
+              </span>
+            </mat-card-title>
+            <mat-card-subtitle>
+              AI-generated transcript from the meeting
+              <span *ngIf="meeting.startsAt && meeting.endsAt" class="recording-duration">
+                • Recording: {{ getRecordingDuration() }}
+              </span>
+            </mat-card-subtitle>
+            <div class="transcript-actions" *ngIf="meeting.recallBotId">
+              <button mat-raised-button color="primary" (click)="fetchTranscriptByBotId()" [disabled]="isFetchingTranscript">
+                <mat-icon *ngIf="!isFetchingTranscript">refresh</mat-icon>
+                <mat-spinner *ngIf="isFetchingTranscript" diameter="20"></mat-spinner>
+                <span>{{ isFetchingTranscript ? 'Fetching...' : 'Fetch Transcript' }}</span>
+              </button>
+              <button mat-raised-button color="accent" (click)="reSyncMeetingBot()" [disabled]="isFetchingTranscript">
+                <mat-icon>sync</mat-icon>
+                <span>Re-sync Bot</span>
+              </button>
+            </div>
           </mat-card-header>
           
           <mat-card-content>
-            <div class="transcript-content">
-              <p><strong>John Doe:</strong> Good morning everyone, let's start with our weekly standup. I'll go first.</p>
-              <p><strong>John Doe:</strong> Last week I completed the API integration for the new feature. Everything is working as expected and I've written comprehensive tests.</p>
-              <p><strong>Jane Smith:</strong> Great work John! I've been working on the UI components and they're ready for integration with your API.</p>
-              <p><strong>Bob Wilson:</strong> I've been reviewing the client feedback from the beta testing. Most of it is positive, but there are a few UI improvements they'd like to see.</p>
-              <p><strong>John Doe:</strong> What specific improvements are they requesting?</p>
-              <p><strong>Bob Wilson:</strong> Mainly around the dashboard layout and some color scheme adjustments. I've prepared a list of changes.</p>
-              <p><strong>Jane Smith:</strong> I can take care of those UI updates. Should we prioritize them for the next sprint?</p>
-              <p><strong>John Doe:</strong> Yes, let's add them to the backlog and discuss in our sprint planning meeting.</p>
-              <p><strong>Bob Wilson:</strong> Sounds good. Also, the client wants to schedule a demo for next Friday to see the progress.</p>
-              <p><strong>Jane Smith:</strong> I'll prepare a presentation highlighting the new features and improvements.</p>
-              <p><strong>John Doe:</strong> Perfect. Any blockers or concerns from anyone?</p>
-              <p><strong>Bob Wilson:</strong> I might need some additional resources for the documentation work. The API is quite extensive.</p>
-              <p><strong>John Doe:</strong> I can help with that. We can pair up on the documentation this week.</p>
-              <p><strong>Jane Smith:</strong> Thanks everyone. See you at the next standup!</p>
+            <div class="transcript-content" *ngIf="meeting.transcriptText; else noTranscript">
+              <pre>{{ meeting.transcriptText }}</pre>
             </div>
+            <ng-template #noTranscript>
+              <div class="no-transcript">
+                <mat-icon>history_edu</mat-icon>
+                <p>No transcript available yet.</p>
+                <div class="debug-actions" *ngIf="meeting.recallBotId">
+                  <button mat-raised-button color="primary" (click)="fetchTranscriptByBotId()" [disabled]="isFetchingTranscript">
+                    <mat-icon *ngIf="!isFetchingTranscript">refresh</mat-icon>
+                    <mat-spinner *ngIf="isFetchingTranscript" diameter="20"></mat-spinner>
+                    <span>{{ isFetchingTranscript ? 'Fetching...' : 'Fetch Transcript' }}</span>
+                  </button>
+                  <button mat-raised-button color="accent" (click)="reSyncMeetingBot()" [disabled]="isFetchingTranscript">
+                    <mat-icon>sync</mat-icon>
+                    <span>Re-sync Bot</span>
+                  </button>
+                </div>
+              </div>
+            </ng-template>
           </mat-card-content>
         </mat-card>
       </div>
@@ -195,6 +220,194 @@
                 </button>
               </div>
             </div>
+          </mat-card-content>
+        </mat-card>
+      </div>
+    </mat-tab>
+
+    <!-- Follow-up Email Tab -->
+    <mat-tab label="Follow-up Email">
+      <div class="tab-content">
+        <mat-card class="content-card">
+          <mat-card-header>
+            <mat-card-title>Follow-up Email</mat-card-title>
+            <mat-card-subtitle>AI-generated follow-up email for meeting participants</mat-card-subtitle>
+          </mat-card-header>
+          
+          <mat-card-content>
+            <div class="email-content" *ngIf="followUpEmail; else noEmail">
+              <div class="email-header">
+                <div class="email-meta">
+                  <span class="email-subject">Subject: {{ followUpEmail.subject }}</span>
+                  <span class="email-date">Generated: {{ followUpEmail.createdAt | date:'medium' }}</span>
+                  <span class="email-status" *ngIf="followUpEmail.status">
+                    <mat-chip [color]="followUpEmail.status === 'sent' ? 'primary' : 'accent'" class="status-chip">
+                      {{ followUpEmail.status | titlecase }}
+                    </mat-chip>
+                  </span>
+                </div>
+                <div class="email-actions">
+                  <button mat-button (click)="previewFollowUpEmail()" 
+                          matTooltip="Preview email in new window">
+                    <mat-icon>visibility</mat-icon>
+                    <span>Preview</span>
+                  </button>
+                  <button mat-button (click)="regenerateFollowUpEmail()" 
+                          [disabled]="isSendingEmail" matTooltip="Generate new email template">
+                    <mat-icon>refresh</mat-icon>
+                    <span>Regenerate</span>
+                  </button>
+                  <button mat-button (click)="copyToClipboard(followUpEmail.content)" 
+                          matTooltip="Copy email content">
+                    <mat-icon>content_copy</mat-icon>
+                    <span>Copy</span>
+                  </button>
+                  <button mat-raised-button color="primary" (click)="sendFollowUpEmail()" 
+                          [disabled]="isSendingEmail || followUpEmail.status === 'sent'" 
+                          matTooltip="Send email to participants">
+                    <mat-icon *ngIf="!isSendingEmail">send</mat-icon>
+                    <mat-spinner *ngIf="isSendingEmail" diameter="20"></mat-spinner>
+                    <span>{{ isSendingEmail ? 'Sending...' : (followUpEmail.status === 'sent' ? 'Sent' : 'Send Email') }}</span>
+                  </button>
+                </div>
+              </div>
+              
+              <div class="email-body">
+                <div class="email-recipients">
+                  <strong>To:</strong> {{ followUpEmail.recipients?.join(', ') || meeting.attendees.join(', ') || 'No attendees' }}
+                  <span class="recipient-count" *ngIf="followUpEmail.recipients">
+                    ({{ followUpEmail.recipients.length }} recipients)
+                  </span>
+                </div>
+                <div class="email-text">
+                  <pre>{{ followUpEmail.content }}</pre>
+                </div>
+                <div class="email-footer-info" *ngIf="followUpEmail.sentAt">
+                  <p><strong>Sent:</strong> {{ followUpEmail.sentAt | date:'medium' }}</p>
+                </div>
+              </div>
+            </div>
+            
+            <ng-template #noEmail>
+              <div class="no-email">
+                <mat-icon>email</mat-icon>
+                <h3>No Follow-up Email Generated</h3>
+                <p>Click the button below to generate a follow-up email for this meeting.</p>
+                <button mat-raised-button color="primary" (click)="generateFollowUpEmail()" [disabled]="isSendingEmail">
+                  <mat-icon *ngIf="!isSendingEmail">auto_awesome</mat-icon>
+                  <mat-spinner *ngIf="isSendingEmail" diameter="20"></mat-spinner>
+                  <span>{{ isSendingEmail ? 'Generating...' : 'Generate Email' }}</span>
+                </button>
+              </div>
+            </ng-template>
+          </mat-card-content>
+        </mat-card>
+      </div>
+    </mat-tab>
+
+    <!-- Social Media Posts Tab -->
+    <mat-tab label="Social Posts">
+      <div class="tab-content">
+        <mat-card class="content-card">
+          <mat-card-header>
+            <mat-card-title>Social Media Posts</mat-card-title>
+            <mat-card-subtitle>Posts created from this meeting</mat-card-subtitle>
+          </mat-card-header>
+          
+          <mat-card-content>
+            <div class="social-posts-list" *ngIf="socialPosts.length > 0; else noPosts">
+              <div class="social-post-item" *ngFor="let post of socialPosts">
+                <div class="post-header">
+                  <div class="post-platform">
+                    <mat-icon>{{ getPlatformIcon(post.platform) }}</mat-icon>
+                    <span class="platform-name">{{ post.platform | titlecase }}</span>
+                    <mat-chip [color]="getPostStatusColor(post.status)" class="status-chip">
+                      {{ post.status | titlecase }}
+                    </mat-chip>
+                    <span class="automation-badge" *ngIf="post.automation">
+                      <mat-icon>auto_awesome</mat-icon>
+                      {{ post.automation }}
+                    </span>
+                  </div>
+                  <div class="post-actions">
+                    <button mat-icon-button (click)="copyPostToClipboard(post.postText)" 
+                            matTooltip="Copy post text">
+                      <mat-icon>content_copy</mat-icon>
+                    </button>
+                    <button mat-icon-button (click)="postToSocial(post.id)" 
+                            *ngIf="post.status === 'draft'"
+                            [disabled]="isPosting"
+                            matTooltip="Post to social media">
+                      <mat-icon>share</mat-icon>
+                    </button>
+                    <button mat-icon-button (click)="retryFailedPost(post.id)" 
+                            *ngIf="post.status === 'failed'"
+                            [disabled]="isPosting"
+                            matTooltip="Retry failed post">
+                      <mat-icon>refresh</mat-icon>
+                    </button>
+                    <button mat-icon-button (click)="schedulePost(post.id)" 
+                            *ngIf="post.status === 'draft'"
+                            [disabled]="isPosting"
+                            matTooltip="Schedule post">
+                      <mat-icon>schedule</mat-icon>
+                    </button>
+                  </div>
+                </div>
+                
+                <div class="post-content">
+                  <p>{{ post.postText }}</p>
+                </div>
+                
+                <div class="post-engagement" *ngIf="post.engagement && post.status === 'posted'">
+                  <div class="engagement-stats">
+                    <span class="engagement-item">
+                      <mat-icon>thumb_up</mat-icon>
+                      {{ post.engagement.likes }}
+                    </span>
+                    <span class="engagement-item">
+                      <mat-icon>comment</mat-icon>
+                      {{ post.engagement.comments }}
+                    </span>
+                    <span class="engagement-item">
+                      <mat-icon>share</mat-icon>
+                      {{ post.engagement.shares }}
+                    </span>
+                  </div>
+                </div>
+                
+                <div class="post-footer">
+                  <div class="post-dates">
+                    <span class="post-date">
+                      Created: {{ post.createdAt | date:'medium' }}
+                    </span>
+                    <span class="post-date" *ngIf="post.postedAt">
+                      Posted: {{ post.postedAt | date:'medium' }}
+                    </span>
+                    <span class="post-date" *ngIf="post.scheduledFor">
+                      Scheduled: {{ post.scheduledFor | date:'medium' }}
+                    </span>
+                  </div>
+                  <div class="post-error" *ngIf="post.error">
+                    <mat-icon>error</mat-icon>
+                    <span>{{ post.error }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <ng-template #noPosts>
+              <div class="no-posts">
+                <mat-icon>share</mat-icon>
+                <h3>No Social Media Posts Yet</h3>
+                <p>Generate social media posts using your configured automations for this meeting.</p>
+                <button mat-raised-button color="primary" (click)="generateSocialPosts()" [disabled]="isPosting">
+                  <mat-icon *ngIf="!isPosting">auto_awesome</mat-icon>
+                  <mat-spinner *ngIf="isPosting" diameter="20"></mat-spinner>
+                  <span>{{ isPosting ? 'Generating...' : 'Generate Social Posts' }}</span>
+                </button>
+              </div>
+            </ng-template>
           </mat-card-content>
         </mat-card>
       </div>

@@ -39,16 +39,27 @@ export class MeetingService {
     return this.apiService.get<MeetingDetail>(`meetings/${id}`);
   }
 
+  fetchTranscript(meetingId: number): Observable<ApiResponse<any>> {
+    return this.apiService.post<any>(`meetings/${meetingId}/transcript:fetch`, {});
+  }
+
+  findExistingBots(meetingId: number): Observable<ApiResponse<any>> {
+    return this.apiService.post<any>(`meetings/${meetingId}/bots:find`, {});
+  }
+
+  findExistingBotsForCalendarEvent(calendarEventId: number): Observable<ApiResponse<any>> {
+    return this.apiService.post<any>(`calendar/events/${calendarEventId}/bots:find`, {});
+  }
+
   toggleNotetaker(calendarEventId: number, enabled: boolean): Observable<ApiResponse<any>> {
     return this.apiService.post(`calendar/events/${calendarEventId}/notetaker:toggle`, {
-      enabled
+      Enabled: enabled
     });
   }
 
   generateContent(meetingId: number, automationId?: number): Observable<ApiResponse<any>> {
-    return this.apiService.post('meetings/generate-content', {
-      meetingId,
-      automationId
+    return this.apiService.post(`meetings/${meetingId}/generate`, {
+      AutomationId: automationId || 0
     });
   }
 
@@ -66,5 +77,43 @@ export class MeetingService {
 
   updateBotSettings(settings: any): Observable<ApiResponse<any>> {
     return this.apiService.post('calendar/bot-settings', settings);
+  }
+
+  // Social Posts methods
+  getSocialPosts(meetingId?: number): Observable<ApiResponse<any[]>> {
+    const params = meetingId ? { meetingId } : {};
+    return this.apiService.get<any[]>('meetings/social-posts', params);
+  }
+
+  createSocialPost(meetingId: number, platform: string, postText: string, targetId?: string): Observable<ApiResponse<any>> {
+    return this.apiService.post(`meetings/${meetingId}/social-posts`, {
+      platform,
+      postText,
+      targetId
+    });
+  }
+
+  postToSocial(socialPostId: number): Observable<ApiResponse<any>> {
+    return this.apiService.post(`meetings/social-posts/${socialPostId}/post`, {});
+  }
+
+  getTranscriptByBotId(botId: string): Observable<ApiResponse<string>> {
+    return this.apiService.get<string>(`meetings/transcript/${botId}`);
+  }
+
+  fetchTranscriptByBotId(botId: string): Observable<ApiResponse<any>> {
+    return this.apiService.post(`meetings/transcript:fetch-by-bot`, { botId });
+  }
+
+  getLatestBotDetails(meetingId: number): Observable<ApiResponse<any>> {
+    return this.apiService.get(`meetings/${meetingId}/bot:latest`);
+  }
+
+  reSyncMeetingBot(meetingId: number): Observable<ApiResponse<any>> {
+    return this.apiService.post(`meetings/${meetingId}/bot:resync`, {});
+  }
+
+  deltaSyncBots(): Observable<ApiResponse<any>> {
+    return this.apiService.post('calendar/bots:delta-sync', {});
   }
 }

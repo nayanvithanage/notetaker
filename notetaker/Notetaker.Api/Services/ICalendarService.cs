@@ -11,6 +11,8 @@ public interface ICalendarService
     Task<ApiResponse> ToggleNotetakerAsync(int userId, int calendarEventId, bool enabled);
     Task<ApiResponse> ScheduleRecallBotAsync(int userId, int calendarEventId);
     Task<ApiResponse> CancelRecallBotAsync(int userId, int calendarEventId);
+    Task<ApiResponse> FindAndLinkExistingBotsForCalendarEventAsync(int userId, int calendarEventId);
+    Task<ApiResponse> DeltaSyncBotsAsync(int userId);
 }
 
 

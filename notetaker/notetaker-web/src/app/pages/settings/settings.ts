@@ -76,6 +76,9 @@ export class SettingsComponent implements OnInit {
     leadMinutes: 5
   };
 
+  // Delta sync state
+  isDeltaSyncing = false;
+
   constructor(
     private authService: AuthService,
     private meetingService: MeetingService,
@@ -249,6 +252,25 @@ export class SettingsComponent implements OnInit {
     } catch (error) {
       console.error('Error saving bot settings:', error);
       this.snackBar.open('Failed to save bot settings', 'Close', { duration: 3000 });
+    }
+  }
+
+  async deltaSyncBots() {
+    if (this.isDeltaSyncing) return;
+    
+    this.isDeltaSyncing = true;
+    try {
+      const response = await this.meetingService.deltaSyncBots().toPromise();
+      if (response?.success) {
+        this.snackBar.open(response.message || 'Delta sync completed successfully!', 'Close', { duration: 5000 });
+      } else {
+        this.snackBar.open(response?.message || 'Delta sync failed', 'Close', { duration: 5000 });
+      }
+    } catch (error) {
+      console.error('Error during delta sync:', error);
+      this.snackBar.open('Delta sync failed. Please try again.', 'Close', { duration: 5000 });
+    } finally {
+      this.isDeltaSyncing = false;
     }
   }
 }

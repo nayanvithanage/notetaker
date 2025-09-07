@@ -345,3 +345,17 @@ mat-card-actions {
   font-size: 14px;
   color: #666;
 }
+
+// Spinning animation for delta sync
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

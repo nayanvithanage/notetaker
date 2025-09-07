@@ -53,31 +53,21 @@ public class CalendarController : ControllerBase
     [HttpPost("events/{calendarEventId}/notetaker:toggle")]
     public async Task<IActionResult> ToggleNotetaker(int calendarEventId, [FromBody] ToggleNotetakerRequest request)
     {
-        _logger.LogInformation("ToggleNotetaker called with calendarEventId: {CalendarEventId}", calendarEventId);
-        
         if (request == null)
         {
-            _logger.LogWarning("Request body is null");
             return BadRequest("Request body is required");
         }
-        
-        _logger.LogInformation("Request body: Enabled = {Enabled}", request.Enabled);
             
         if (calendarEventId <= 0)
         {
-            _logger.LogWarning("Invalid calendarEventId: {CalendarEventId}", calendarEventId);
             return BadRequest("Invalid calendar event ID");
         }
         
         var userId = GetCurrentUserId();
         if (userId <= 0)
         {
-            _logger.LogWarning("Invalid userId: {UserId}", userId);
             return BadRequest("Invalid user ID");
         }
-        
-        _logger.LogInformation("Calling ToggleNotetakerAsync with userId: {UserId}, calendarEventId: {CalendarEventId}, enabled: {Enabled}", 
-            userId, calendarEventId, request.Enabled);
         
         var result = await _calendarService.ToggleNotetakerAsync(userId, calendarEventId, request.Enabled);
         return result.Success ? Ok(result) : BadRequest(result);
@@ -115,6 +105,14 @@ public class CalendarController : ControllerBase
             _logger.LogError(ex, "Error getting bot settings");
             return BadRequest(ApiResponse.ErrorResult("Failed to get bot settings"));
         }
+    }
+
+    [HttpPost("events/{calendarEventId}/bots:find")]
+    public async Task<IActionResult> FindExistingBotsForCalendarEvent(int calendarEventId)
+    {
+        var userId = GetCurrentUserId();
+        var result = await _calendarService.FindAndLinkExistingBotsForCalendarEventAsync(userId, calendarEventId);
+        return result.Success ? Ok(result) : BadRequest(result);
     }
 
     [HttpPost("bot-settings")]
@@ -193,59 +191,39 @@ public class CalendarController : ControllerBase
         }
     }
 
-    [HttpGet("test-url")]
-    public IActionResult TestUrlExtraction()
+    [HttpPost("bots:delta-sync")]
+    public async Task<IActionResult> DeltaSyncBots()
     {
         try
         {
-            // Test the URL extraction patterns directly
-            var testText = "Join here: meet.google.com/yiy-iphq-wwv";
-            
-            var meetingUrlPatterns = new[]
+            var userId = GetCurrentUserId();
+            if (userId <= 0)
             {
-                // Google Meet patterns
-                @"https?://[^\s]*meet\.google\.com[^\s]*",
-                @"(?:https?://)?[^\s]*meet\.google\.com[^\s]*",
-            };
-
-            var results = new List<object>();
-            
-            foreach (var pattern in meetingUrlPatterns)
-            {
-                var urlRegex = new System.Text.RegularExpressions.Regex(pattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-                var match = urlRegex.Match(testText);
-                
-                results.Add(new
-                {
-                    Pattern = pattern,
-                    TestText = testText,
-                    MatchSuccess = match.Success,
-                    ExtractedUrl = match.Success ? match.Value : null
-                });
+                return BadRequest(ApiResponse.ErrorResult("Invalid user ID"));
             }
 
-            return Ok(ApiResponse.SuccessResult(results));
+            _logger.LogInformation("Starting delta sync for user {UserId}", userId);
+            var result = await _calendarService.DeltaSyncBotsAsync(userId);
+            return result.Success ? Ok(result) : BadRequest(result);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error testing URL extraction");
-            return BadRequest(ApiResponse.ErrorResult("Failed to test URL extraction"));
+            _logger.LogError(ex, "Error during delta sync");
+            return BadRequest(ApiResponse.ErrorResult("Failed to perform delta sync"));
         }
     }
+
 
 
     private int GetCurrentUserId()
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        _logger.LogInformation("GetCurrentUserId: userIdClaim = {UserIdClaim}", userIdClaim);
         
         if (int.TryParse(userIdClaim, out var userId))
         {
-            _logger.LogInformation("Parse userId result: true, userId = {UserId}", userId);
             return userId;
         }
         
-        _logger.LogWarning("Parse userId result: false, userIdClaim = {UserIdClaim}", userIdClaim);
         return 0;
     }
 }
