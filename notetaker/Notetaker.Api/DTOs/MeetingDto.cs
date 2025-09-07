@@ -5,6 +5,7 @@ public class MeetingDto
     public int Id { get; set; }
     public int CalendarEventId { get; set; }
     public string Title { get; set; } = string.Empty;
+    public string? Description { get; set; }
     public DateTime StartsAt { get; set; }
     public DateTime EndsAt { get; set; }
     public string Platform { get; set; } = string.Empty;

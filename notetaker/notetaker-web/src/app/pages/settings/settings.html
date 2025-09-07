@@ -210,6 +210,23 @@
                 </button>
               </div>
             </div>
+            
+            <div class="integration-item">
+              <div class="integration-info">
+                <mat-icon>sync</mat-icon>
+                <div>
+                  <h4>Delta Sync Bots</h4>
+                  <p>Sync existing bots from Recall.ai with your calendar events</p>
+                </div>
+              </div>
+              <div class="integration-actions">
+                <button mat-raised-button color="primary" (click)="deltaSyncBots()" [disabled]="isDeltaSyncing">
+                  <mat-icon *ngIf="!isDeltaSyncing">sync</mat-icon>
+                  <mat-icon *ngIf="isDeltaSyncing" class="spinning">refresh</mat-icon>
+                  <span>{{ isDeltaSyncing ? 'Syncing...' : 'Delta Sync' }}</span>
+                </button>
+              </div>
+            </div>
           </mat-card-content>
           
           <mat-card-actions>

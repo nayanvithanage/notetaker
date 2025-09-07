@@ -16,16 +16,30 @@ export interface Meeting {
 }
 
 export interface MeetingDetail extends Meeting {
-  transcript?: string;
-  summary?: string;
-  actionItems?: string[];
-  generatedContent?: GeneratedContent[];
+  transcriptText?: string;
+  summaryJson?: string;
+  mediaUrls?: string[];
+  generatedContents?: GeneratedContent[];
+  socialPosts?: SocialPost[];
+}
+
+export interface SocialPost {
+  id: number;
+  platform: string;
+  postText: string;
+  status: string;
+  externalPostId?: string;
+  postedAt?: string;
+  error?: string;
+  createdAt: string;
 }
 
 export interface GeneratedContent {
   id: number;
-  type: 'summary' | 'action_items' | 'social_post' | 'email';
-  content: string;
-  automationId?: number;
+  automationId: number;
+  automationName: string;
+  platform: string;
+  model: string;
+  outputText: string;
   createdAt: string;
 }

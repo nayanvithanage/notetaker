@@ -34,7 +34,7 @@
       <div class="spacer"></div>
       
       <div class="user-menu" *ngIf="isAuthenticated">
-        <span class="user-name">{{ currentUser?.name || 'User' }}</span>
+        <span class="user-name">{{ getUserDisplayName() }}</span>
         <button mat-icon-button [matMenuTriggerFor]="userMenu">
           <mat-icon>account_circle</mat-icon>
         </button>

@@ -19,6 +19,7 @@ export const routes: Routes = [
     children: [
       { path: 'meetings', component: MeetingsComponent },
       { path: 'meetings/:id', component: MeetingDetailComponent },
+      { path: 'meetings/event/:calendarEventId', component: MeetingDetailComponent },
       { path: 'automations', component: AutomationsComponent },
       { path: 'settings', component: SettingsComponent }
     ]

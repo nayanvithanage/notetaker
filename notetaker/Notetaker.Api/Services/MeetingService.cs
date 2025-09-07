@@ -9,11 +9,13 @@ namespace Notetaker.Api.Services;
 public class MeetingService : IMeetingService
 {
     private readonly NotetakerDbContext _context;
+    private readonly IRecallAiService _recallAiService;
     private readonly ILogger<MeetingService> _logger;
 
-    public MeetingService(NotetakerDbContext context, ILogger<MeetingService> logger)
+    public MeetingService(NotetakerDbContext context, IRecallAiService recallAiService, ILogger<MeetingService> logger)
     {
         _context = context;
+        _recallAiService = recallAiService;
         _logger = logger;
     }
 
@@ -37,6 +39,7 @@ public class MeetingService : IMeetingService
                     Id = m.Id,
                     CalendarEventId = m.CalendarEventId,
                     Title = m.CalendarEvent.Title,
+                    Description = m.CalendarEvent.Description,
                     StartsAt = m.CalendarEvent.StartsAt,
                     EndsAt = m.CalendarEvent.EndsAt,
                     Platform = m.Platform,
@@ -103,11 +106,15 @@ public class MeetingService : IMeetingService
                 attendees = System.Text.Json.JsonSerializer.Deserialize<List<string>>(meeting.CalendarEvent.AttendeesJson) ?? new List<string>();
             }
 
+            _logger.LogInformation("GetMeetingDetailAsync - Meeting {MeetingId} has RecallBotId: {RecallBotId}", 
+                meetingId, meeting.RecallBotId);
+
             var detail = new MeetingDetailDto
             {
                 Id = meeting.Id,
                 CalendarEventId = meeting.CalendarEventId,
                 Title = meeting.CalendarEvent.Title,
+                Description = meeting.CalendarEvent.Description,
                 StartsAt = meeting.CalendarEvent.StartsAt,
                 EndsAt = meeting.CalendarEvent.EndsAt,
                 Platform = meeting.Platform,
@@ -339,6 +346,254 @@ public class MeetingService : IMeetingService
         {
             _logger.LogError(ex, "Error posting to social for post {SocialPostId}", socialPostId);
             return ApiResponse.ErrorResult("Failed to post to social media");
+        }
+    }
+
+    public async Task<ApiResponse> FindAndLinkExistingBotsAsync(int userId, int meetingId)
+    {
+        try
+        {
+            var meeting = await _context.Meetings
+                .Include(m => m.CalendarEvent)
+                .FirstOrDefaultAsync(m => m.Id == meetingId && m.UserId == userId);
+
+            if (meeting == null)
+            {
+                return ApiResponse.ErrorResult("Meeting not found");
+            }
+
+            if (string.IsNullOrEmpty(meeting.CalendarEvent.JoinUrl))
+            {
+                return ApiResponse.ErrorResult("Meeting has no join URL to search for bots");
+            }
+
+            // If the meeting already has a bot, no need to search
+            if (!string.IsNullOrEmpty(meeting.RecallBotId))
+            {
+                return ApiResponse.SuccessResult("Meeting already has a bot linked");
+            }
+
+            // Get the recall service to find existing bots
+            var existingBotsResult = await _recallAiService.GetBotsByMeetingUrlAsync(meeting.CalendarEvent.JoinUrl);
+
+            if (!existingBotsResult.Success)
+            {
+                return ApiResponse.ErrorResult($"Failed to search for existing bots: {existingBotsResult.Message}");
+            }
+
+            var existingBots = existingBotsResult.Data ?? new List<RecallBotStatus>();
+
+            if (existingBots.Count == 0)
+            {
+                return ApiResponse.SuccessResult("No existing bots with recordings found for this meeting");
+            }
+
+            // Find the best bot - prefer "done" status bots, then by recording duration and recency
+            var bestBot = existingBots
+                .OrderByDescending(b => b.Status == "done") // Prefer completed bots first
+                .ThenByDescending(b => b.RecordingDuration?.TotalSeconds ?? 0) // Then by recording length
+                .ThenByDescending(b => b.Start_time ?? DateTime.MinValue) // Finally by recency
+                .FirstOrDefault();
+
+            if (bestBot == null)
+            {
+                return ApiResponse.SuccessResult($"Found {existingBots.Count} bots but none have valid recordings");
+            }
+
+            _logger.LogInformation("Selected best bot {BotId} for meeting {MeetingId}: Status={Status}, Duration={Duration}s",
+                bestBot.Id, meetingId, bestBot.Status, bestBot.RecordingDuration?.TotalSeconds ?? 0);
+
+            // Link the best bot to this meeting
+            meeting.RecallBotId = bestBot.Id;
+            meeting.Status = bestBot.Status == "done" ? "ready" : (bestBot.Status ?? "scheduled");
+            meeting.StartedAt = bestBot.Start_time;
+            meeting.EndedAt = bestBot.End_time;
+            meeting.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Linked existing bot {BotId} to meeting {MeetingId}", bestBot.Id, meetingId);
+            
+            // Verify the update was saved
+            var updatedMeeting = await _context.Meetings
+                .FirstOrDefaultAsync(m => m.Id == meetingId);
+            _logger.LogInformation("Verification - Meeting {MeetingId} now has RecallBotId: {RecallBotId}", 
+                meetingId, updatedMeeting?.RecallBotId);
+
+            // If the bot is done, trigger transcript fetch
+            if (bestBot.Status == "done")
+            {
+                _ = Task.Run(() => _recallAiService.FetchTranscriptAsync(meetingId));
+            }
+
+            var duration = bestBot.RecordingDuration?.TotalSeconds ?? 0;
+            var durationText = duration > 0 ? $"{duration:F0}s recording" : "recording";
+            return ApiResponse.SuccessResult($"Successfully linked existing bot {bestBot.Id} to meeting ({durationText})");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error finding and linking existing bots for meeting {MeetingId}", meetingId);
+            return ApiResponse.ErrorResult("Failed to find and link existing bots");
+        }
+    }
+
+
+    public async Task<ApiResponse<int>> CreateMeetingForCalendarEventAsync(int userId, int calendarEventId, string botId)
+    {
+        try
+        {
+            // Get calendar event
+            var calendarEvent = await _context.CalendarEvents
+                .FirstOrDefaultAsync(ce => ce.Id == calendarEventId && ce.UserId == userId);
+
+            if (calendarEvent == null)
+            {
+                return ApiResponse<int>.ErrorResult("Calendar event not found");
+            }
+
+            // Check if meeting already exists
+            var existingMeeting = await _context.Meetings
+                .FirstOrDefaultAsync(m => m.CalendarEventId == calendarEventId && m.UserId == userId);
+
+            if (existingMeeting != null)
+            {
+                return ApiResponse<int>.SuccessResult(existingMeeting.Id, "Meeting already exists");
+            }
+
+            // Create meeting with the provided bot ID
+            var meeting = new Meeting
+            {
+                UserId = userId,
+                CalendarEventId = calendarEventId,
+                RecallBotId = botId,
+                Status = "ready", // Mark as ready since the bot is done
+                Platform = calendarEvent.Platform,
+                StartedAt = calendarEvent.StartsAt,
+                EndedAt = calendarEvent.EndsAt,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            _context.Meetings.Add(meeting);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Created meeting {MeetingId} for calendar event {CalendarEventId} with bot {BotId}", 
+                meeting.Id, calendarEventId, botId);
+
+            return ApiResponse<int>.SuccessResult(meeting.Id, "Meeting created successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating meeting for calendar event {CalendarEventId}", calendarEventId);
+            return ApiResponse<int>.ErrorResult("Failed to create meeting");
+        }
+    }
+
+    public async Task<ApiResponse<RecallBotStatus>> GetLatestBotDetailsAsync(int meetingId)
+    {
+        try
+        {
+            var meeting = await _context.Meetings
+                .Include(m => m.CalendarEvent)
+                .FirstOrDefaultAsync(m => m.Id == meetingId);
+
+            if (meeting?.RecallBotId == null)
+            {
+                return ApiResponse<RecallBotStatus>.ErrorResult("Meeting or bot ID not found");
+            }
+
+            // Get fresh bot details from Recall.ai
+            var botResponse = await _recallAiService.GetBotStatusAsync(meeting.RecallBotId);
+            if (!botResponse.Success)
+            {
+                return ApiResponse<RecallBotStatus>.ErrorResult($"Failed to get bot details: {botResponse.Message}");
+            }
+
+            var bot = botResponse.Data;
+            if (bot == null)
+            {
+                return ApiResponse<RecallBotStatus>.ErrorResult("Bot details not found");
+            }
+
+            // Log transcript availability
+            if (bot.HasTranscript)
+            {
+                _logger.LogInformation("Bot {BotId} has transcript available for meeting {MeetingId}", 
+                    meeting.RecallBotId, meetingId);
+            }
+            else
+            {
+                _logger.LogInformation("Bot {BotId} does not have transcript available for meeting {MeetingId}", 
+                    meeting.RecallBotId, meetingId);
+            }
+
+            return ApiResponse<RecallBotStatus>.SuccessResult(bot, "Bot details retrieved successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting latest bot details for meeting {MeetingId}", meetingId);
+            return ApiResponse<RecallBotStatus>.ErrorResult("Failed to get bot details");
+        }
+    }
+
+    public async Task<ApiResponse> ReSyncMeetingBotAsync(int meetingId)
+    {
+        try
+        {
+            var meeting = await _context.Meetings
+                .Include(m => m.CalendarEvent)
+                .FirstOrDefaultAsync(m => m.Id == meetingId);
+
+            if (meeting?.CalendarEvent == null)
+            {
+                return ApiResponse.ErrorResult("Meeting or calendar event not found");
+            }
+
+            // Get all bots from Recall.ai
+            var botsResponse = await _recallAiService.GetAllBotsAsync();
+            if (!botsResponse.Success || botsResponse.Data == null)
+            {
+                return ApiResponse.ErrorResult("Failed to get bots from Recall.ai");
+            }
+
+            var bots = botsResponse.Data;
+            var meetingUrl = meeting.CalendarEvent.JoinUrl;
+            var platform = meeting.CalendarEvent.Platform;
+
+            // Find all bots that match this meeting
+            var matchingBots = bots.Where(b => 
+                !string.IsNullOrEmpty(b.Meeting_url?.Meeting_id) &&
+                b.Meeting_url.Platform == platform &&
+                (meetingUrl.Contains(b.Meeting_url.Meeting_id) || 
+                 meetingUrl.Equals(b.Meeting_url.Meeting_id, StringComparison.OrdinalIgnoreCase)))
+                .OrderByDescending(b => b.HasTranscript)
+                .ThenByDescending(b => b.Start_time)
+                .ToList();
+
+            if (!matchingBots.Any())
+            {
+                return ApiResponse.ErrorResult("No matching bots found for this meeting");
+            }
+
+            // Select the best bot (with transcript if available)
+            var bestBot = matchingBots.First();
+            var oldBotId = meeting.RecallBotId;
+
+            meeting.RecallBotId = bestBot.Id;
+            meeting.Status = bestBot.CurrentStatus ?? "scheduled";
+            meeting.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Re-synced meeting {MeetingId}: Changed from bot {OldBotId} to {NewBotId} (HasTranscript: {HasTranscript})", 
+                meetingId, oldBotId, bestBot.Id, bestBot.HasTranscript);
+
+            return ApiResponse.SuccessResult($"Meeting re-synced with bot {bestBot.Id} (HasTranscript: {bestBot.HasTranscript})");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error re-syncing meeting bot for meeting {MeetingId}", meetingId);
+            return ApiResponse.ErrorResult("Failed to re-sync meeting bot");
         }
     }
 }
