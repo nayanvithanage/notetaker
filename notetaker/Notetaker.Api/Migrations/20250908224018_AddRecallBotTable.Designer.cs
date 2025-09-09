@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Notetaker.Api.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Notetaker.Api.Migrations
 {
     [DbContext(typeof(NotetakerDbContext))]
-    partial class NotetakerDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250908224018_AddRecallBotTable")]
+    partial class AddRecallBotTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -293,41 +296,6 @@ namespace Notetaker.Api.Migrations
                         .HasDatabaseName("IX_Meetings_UserId_CalendarEventId");
 
                     b.ToTable("Meetings");
-                });
-
-            modelBuilder.Entity("Notetaker.Api.Models.MeetingRecallBot", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-                    b.Property<int>("MeetingId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("RecallBotId")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("RecallBotId");
-
-                    b.HasIndex("MeetingId", "RecallBotId")
-                        .IsUnique()
-                        .HasDatabaseName("IX_MeetingRecallBots_MeetingId_RecallBotId");
-
-                    b.ToTable("MeetingRecallBots");
                 });
 
             modelBuilder.Entity("Notetaker.Api.Models.MeetingTranscript", b =>
@@ -745,25 +713,6 @@ namespace Notetaker.Api.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Notetaker.Api.Models.MeetingRecallBot", b =>
-                {
-                    b.HasOne("Notetaker.Api.Models.Meeting", "Meeting")
-                        .WithMany("MeetingRecallBots")
-                        .HasForeignKey("MeetingId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Notetaker.Api.Models.RecallBot", "RecallBot")
-                        .WithMany("MeetingRecallBots")
-                        .HasForeignKey("RecallBotId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Meeting");
-
-                    b.Navigation("RecallBot");
-                });
-
             modelBuilder.Entity("Notetaker.Api.Models.MeetingTranscript", b =>
                 {
                     b.HasOne("Notetaker.Api.Models.Meeting", "Meeting")
@@ -835,16 +784,9 @@ namespace Notetaker.Api.Migrations
                 {
                     b.Navigation("GeneratedContents");
 
-                    b.Navigation("MeetingRecallBots");
-
                     b.Navigation("MeetingTranscripts");
 
                     b.Navigation("SocialPosts");
-                });
-
-            modelBuilder.Entity("Notetaker.Api.Models.RecallBot", b =>
-                {
-                    b.Navigation("MeetingRecallBots");
                 });
 
             modelBuilder.Entity("Notetaker.Api.Models.SocialAccount", b =>

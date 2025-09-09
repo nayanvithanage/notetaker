@@ -13,6 +13,7 @@ public interface ICalendarService
     Task<ApiResponse> CancelRecallBotAsync(int userId, int calendarEventId);
     Task<ApiResponse> FindAndLinkExistingBotsForCalendarEventAsync(int userId, int calendarEventId);
     Task<ApiResponse> DeltaSyncBotsAsync(int userId);
+    Task<ApiResponse> CreateMissingMeetingRecordsAsync(int userId);
 }
 
 

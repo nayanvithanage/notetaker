@@ -34,9 +34,15 @@
       <div class="spacer"></div>
       
       <div class="user-menu" *ngIf="isAuthenticated">
-        <span class="user-name">{{ getUserDisplayName() }}</span>
-        <button mat-icon-button [matMenuTriggerFor]="userMenu">
-          <mat-icon>account_circle</mat-icon>
+        <span class="user-name">{{ getUserEmail() }}</span>
+        <button mat-icon-button [matMenuTriggerFor]="userMenu" class="profile-button">
+          <img *ngIf="getUserProfilePicture(); else defaultIcon" 
+               [src]="getUserProfilePicture()" 
+               [alt]="getUserEmail()" 
+               class="profile-picture">
+          <ng-template #defaultIcon>
+            <mat-icon>account_circle</mat-icon>
+          </ng-template>
         </button>
         
         <mat-menu #userMenu="matMenu">

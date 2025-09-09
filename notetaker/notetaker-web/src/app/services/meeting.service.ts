@@ -116,4 +116,21 @@ export class MeetingService {
   deltaSyncBots(): Observable<ApiResponse<any>> {
     return this.apiService.post('calendar/bots:delta-sync', {});
   }
+
+  // Bot sync methods
+  syncAllBots(): Observable<ApiResponse<any>> {
+    return this.apiService.post('botsync/sync', {});
+  }
+
+  getBotStats(): Observable<ApiResponse<any>> {
+    return this.apiService.get('botsync/bots');
+  }
+
+  clearAllBots(): Observable<ApiResponse<any>> {
+    return this.apiService.delete('botsync/clear');
+  }
+
+  syncMockBots(): Observable<ApiResponse<any>> {
+    return this.apiService.post('botsync/sync-mock', {});
+  }
 }

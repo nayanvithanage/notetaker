@@ -25,9 +25,11 @@
             <mat-card-title>{{ meeting.title }}</mat-card-title>
             <mat-card-subtitle>
               {{ meeting.startsAt | date:'medium' }} - {{ meeting.endsAt | date:'short' }}
-              <span *ngIf="meeting.recallBotId" class="bot-id-display">
-                • Bot: <code>{{ meeting.recallBotId }}</code>
-              </span>
+              <div *ngIf="getBotIds(meeting).length > 0" class="bot-ids-display">
+                <span *ngFor="let botId of getBotIds(meeting); let last = last" class="bot-id-display">
+                  • Bot: <code>{{ botId }}</code><span *ngIf="!last">, </span>
+                </span>
+              </div>
             </mat-card-subtitle>
           </mat-card-header>
           <mat-card-content>
@@ -39,10 +41,11 @@
             </div>
             <div class="notetaker-toggle">
               <mat-slide-toggle 
-                [checked]="meeting.notetakerEnabled" 
-                [disabled]="isToggling(meeting)"
+                [checked]="meeting.notetakerEnabled || getBotIds(meeting).length > 0" 
+                [disabled]="isToggling(meeting) || getBotIds(meeting).length > 0"
                 (change)="toggleNotetaker(meeting, $event.checked)">
-                <span *ngIf="!isToggling(meeting)">Enable Notetaker</span>
+                <span *ngIf="!isToggling(meeting) && getBotIds(meeting).length === 0">Enable Notetaker</span>
+                <span *ngIf="!isToggling(meeting) && getBotIds(meeting).length > 0">Notetaker Active ({{ getBotIds(meeting).length }} bot{{ getBotIds(meeting).length > 1 ? 's' : '' }})</span>
                 <span *ngIf="isToggling(meeting)" class="loading-text">
                   <mat-spinner diameter="16"></mat-spinner>
                   Processing...
@@ -55,9 +58,9 @@
               <mat-icon>video_call</mat-icon>
               <span>Join</span>
             </button>
-            <button mat-button (click)="openBotDetails(meeting)" *ngIf="meeting.notetakerEnabled">
+            <button mat-button (click)="openBotDetails(meeting)" *ngIf="getBotIds(meeting).length > 0">
               <mat-icon>robot</mat-icon>
-              <span>Bot Details</span>
+              <span>Bot Details ({{ getBotIds(meeting).length }})</span>
             </button>
             <button mat-button (click)="viewMeeting(meeting)" [disabled]="(!meeting.id || meeting.id === 0) && (!meeting.calendarEventId)">
               <mat-icon>visibility</mat-icon>
@@ -78,9 +81,11 @@
             <mat-card-title>{{ meeting.title }}</mat-card-title>
             <mat-card-subtitle>
               {{ meeting.startsAt | date:'medium' }} - {{ meeting.endsAt | date:'short' }}
-              <span *ngIf="meeting.recallBotId" class="bot-id-display">
-                • Bot: <code>{{ meeting.recallBotId }}</code>
-              </span>
+              <div *ngIf="getBotIds(meeting).length > 0" class="bot-ids-display">
+                <span *ngFor="let botId of getBotIds(meeting); let last = last" class="bot-id-display">
+                  • Bot: <code>{{ botId }}</code><span *ngIf="!last">, </span>
+                </span>
+              </div>
             </mat-card-subtitle>
           </mat-card-header>
           <mat-card-content>

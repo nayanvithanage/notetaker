@@ -19,6 +19,7 @@ export interface BotDetailsData {
     end_time?: Date;
     error?: string;
   };
+  allBotIds?: string[]; // Support for multiple bot IDs
 }
 
 @Component({

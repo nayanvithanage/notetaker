@@ -110,16 +110,18 @@ export class AuthService {
     // Try to decode the access token to get user info
     try {
       const payload = JSON.parse(atob(accessToken.split('.')[1]));
+      
       const user: User = {
-        id: payload.sub || 0,
-        email: payload.email || '',
-        name: payload.name || '',
-        picture: payload.picture || '',
-        pictureUrl: payload.picture || '',
+        id: parseInt(payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier']) || 0,
+        email: payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'] || '',
+        name: payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'] || '',
+        picture: payload.picture_url || '',
+        pictureUrl: payload.picture_url || '',
         googleId: payload.googleId || '',
-        authProvider: 'google',
+        authProvider: payload.auth_provider || 'google',
         createdAt: payload.createdAt || new Date().toISOString()
       };
+      
       localStorage.setItem('user', JSON.stringify(user));
       this.currentUserSubject.next(user);
     } catch (error) {

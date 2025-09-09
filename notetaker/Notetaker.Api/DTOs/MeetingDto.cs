@@ -16,7 +16,8 @@ public class MeetingDto
     public DateTime? StartedAt { get; set; }
     public DateTime? EndedAt { get; set; }
     public DateTime CreatedAt { get; set; }
-    public string? RecallBotId { get; set; }
+    public string? RecallBotId { get; set; } // Keep for backward compatibility
+    public List<string> RecallBotIds { get; set; } = new(); // New field for multiple bots
 }
 
 public class MeetingDetailDto : MeetingDto

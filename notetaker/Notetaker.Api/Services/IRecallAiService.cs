@@ -65,30 +65,6 @@ public class RecallBotStatus
         r.Media_shortcuts?.Transcript?.Status?.Code == "done");
 }
 
-public class MeetingUrl
-{
-    [JsonPropertyName("meeting_id")]
-    public string? Meeting_id { get; set; }
-    
-    [JsonPropertyName("platform")]
-    public string? Platform { get; set; }
-}
-
-public class StatusChange
-{
-    [JsonPropertyName("code")]
-    public string? Code { get; set; }
-    
-    [JsonPropertyName("message")]
-    public string? Message { get; set; }
-    
-    [JsonPropertyName("created_at")]
-    public DateTime? Created_at { get; set; }
-    
-    [JsonPropertyName("sub_code")]
-    public string? Sub_code { get; set; }
-}
-
 public class RecallTranscript
 {
     public string? Transcript { get; set; }

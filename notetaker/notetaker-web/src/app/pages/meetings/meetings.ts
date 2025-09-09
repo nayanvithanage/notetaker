@@ -13,6 +13,7 @@ import { MeetingService } from '../../services/meeting.service';
 import { AuthService } from '../../services/auth.service';
 import { ApiService } from '../../services/api.service';
 import { Meeting } from '../../models/meeting.model';
+import { ApiResponse } from '../../models/api-response.model';
 import { BotDetailsModalComponent, BotDetailsData } from '../../components/bot-details-modal/bot-details-modal.component';
 
 @Component({
@@ -204,6 +205,19 @@ export class MeetingsComponent implements OnInit {
         }
       }
       
+      // Create missing meeting records for calendar events
+      console.log('Creating missing meeting records...');
+      try {
+        const meetingResponse = await this.apiService.post<ApiResponse>('/calendar/sync:create-meetings', {}).toPromise();
+        if (meetingResponse?.success) {
+          console.log('Meeting records created successfully:', meetingResponse.message);
+        } else {
+          console.warn('Failed to create meeting records:', meetingResponse?.message);
+        }
+      } catch (meetingError) {
+        console.warn('Error creating meeting records:', meetingError);
+      }
+      
       // Reload meetings after sync
       console.log('Reloading meetings after sync...');
       await this.loadMeetings();
@@ -281,16 +295,23 @@ export class MeetingsComponent implements OnInit {
 
   openBotDetails(meeting: Meeting): void {
     console.log('Opening bot details for meeting:', meeting);
-    console.log('Meeting recallBotId:', meeting.recallBotId);
+    console.log('Meeting bot IDs:', this.getBotIds(meeting));
     console.log('Meeting status:', meeting.status);
+    
+    const botIds = this.getBotIds(meeting);
+    if (botIds.length === 0) {
+      console.warn('No bot IDs found for meeting');
+      return;
+    }
     
     const dialogData: BotDetailsData = {
       meeting: meeting,
-      botStatus: meeting.recallBotId ? {
-        id: meeting.recallBotId,
+      botStatus: botIds.length > 0 ? {
+        id: botIds[0], // Use first bot ID for primary display
         status: meeting.status,
         meeting_url: meeting.joinUrl
-      } : undefined
+      } : undefined,
+      allBotIds: botIds // Pass all bot IDs for multiple bot support
     };
 
     console.log('Dialog data:', dialogData);
@@ -314,12 +335,7 @@ export class MeetingsComponent implements OnInit {
   }
 
   viewMeeting(meeting: Meeting) {
-    console.log('=== VIEW MEETING DEBUG ===');
-    console.log('Navigating to meeting details for:', meeting);
-    console.log('Meeting ID:', meeting.id, 'Type:', typeof meeting.id);
-    console.log('Calendar Event ID:', meeting.calendarEventId, 'Type:', typeof meeting.calendarEventId);
-    console.log('Meeting title:', meeting.title);
-    console.log('Meeting status:', meeting.status);
+   
     
     // Prefer meeting.id; if missing, fall back to calendarEventId route with a query param
     if (meeting.id && !isNaN(meeting.id)) {
@@ -362,17 +378,26 @@ export class MeetingsComponent implements OnInit {
     }
   }
 
+  getBotIds(meeting: Meeting): string[] {
+    // Return multiple bot IDs if available, otherwise fall back to single bot ID
+    if (meeting.recallBotIds && meeting.recallBotIds.length > 0) {
+      return meeting.recallBotIds;
+    }
+    if (meeting.recallBotId) {
+      return [meeting.recallBotId];
+    }
+    return [];
+  }
+
   private mapCalendarEventToMeeting(event: any): Meeting {
-    console.log('Mapping calendar event to meeting:', event);
-    console.log('Event recallBotId:', event.recallBotId);
-    console.log('Event meetingStatus:', event.meetingStatus);
-    console.log('Event meetingId:', event.meetingId);
-    
     // Ensure we have a valid meeting ID from the backend. If missing, disable details view.
     const meetingId = event.meetingId;
     if (!meetingId) {
       console.warn('No meeting ID found in calendar event. Details view will be disabled.', event);
     }
+    
+    // Handle multiple bot IDs - create array from single bot ID or use provided array
+    const recallBotIds = event.recallBotIds || (event.recallBotId ? [event.recallBotId] : []);
     
     const meeting: Meeting = {
       id: meetingId ? parseInt(meetingId.toString()) : 0, // 0 when not available so UI can hide actions
@@ -383,10 +408,11 @@ export class MeetingsComponent implements OnInit {
       platform: event.platform || 'unknown',
       joinUrl: event.joinUrl || '',
       attendees: event.attendees || [],
-      notetakerEnabled: event.notetakerEnabled || false,
+      notetakerEnabled: recallBotIds.length > 0 || event.notetakerEnabled || false, // Auto-enable if bots assigned
       status: event.meetingStatus || 'scheduled',
       calendarEventId: event.id.toString(), // Use the calendar event ID directly
-      recallBotId: event.recallBotId,
+      recallBotId: event.recallBotId, // Keep for backward compatibility
+      recallBotIds: recallBotIds, // New field for multiple bots
       createdAt: event.createdAt || new Date().toISOString(),
       updatedAt: event.updatedAt || new Date().toISOString()
     };

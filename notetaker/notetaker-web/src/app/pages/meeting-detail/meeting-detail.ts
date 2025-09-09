@@ -544,6 +544,22 @@ export class MeetingDetailComponent implements OnInit {
     return end < Date.now();
   }
 
+  isUpcomingMeeting(): boolean {
+    return !this.isPastMeeting();
+  }
+
+  getBotIds(): string[] {
+    if (!this.meeting) return [];
+    // Return multiple bot IDs if available, otherwise fall back to single bot ID
+    if (this.meeting.recallBotIds && this.meeting.recallBotIds.length > 0) {
+      return this.meeting.recallBotIds;
+    }
+    if (this.meeting.recallBotId) {
+      return [this.meeting.recallBotId];
+    }
+    return [];
+  }
+
   getRecordingDuration(): string {
     if (!this.meeting?.startsAt || !this.meeting?.endsAt) return '';
 

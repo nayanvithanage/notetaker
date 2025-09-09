@@ -40,6 +40,12 @@ export class SettingsComponent implements OnInit {
   selectedTab = 0;
   googleAccounts: any[] = [];
   isLoadingAccounts = false;
+  
+  // Bot sync properties
+  isSyncingBots = false;
+  isClearingBots = false;
+  isSyncingMockBots = false;
+  botStats: any = null;
 
   // Profile settings
   profileForm = {
@@ -89,6 +95,7 @@ export class SettingsComponent implements OnInit {
     this.loadUserProfile();
     this.loadGoogleAccounts();
     this.loadBotSettings();
+    this.loadBotStats();
   }
 
   loadUserProfile() {
@@ -271,6 +278,81 @@ export class SettingsComponent implements OnInit {
       this.snackBar.open('Delta sync failed. Please try again.', 'Close', { duration: 5000 });
     } finally {
       this.isDeltaSyncing = false;
+    }
+  }
+
+  async syncAllBots() {
+    if (this.isSyncingBots) return;
+    
+    this.isSyncingBots = true;
+    try {
+      const response = await this.meetingService.syncAllBots().toPromise();
+      if (response?.success) {
+        this.snackBar.open(response.message || 'All bots synced successfully!', 'Close', { duration: 5000 });
+        await this.loadBotStats();
+      } else {
+        this.snackBar.open(response?.message || 'Bot sync failed', 'Close', { duration: 5000 });
+      }
+    } catch (error) {
+      console.error('Error syncing all bots:', error);
+      this.snackBar.open('Bot sync failed. Please try again.', 'Close', { duration: 5000 });
+    } finally {
+      this.isSyncingBots = false;
+    }
+  }
+
+  async clearAllBots() {
+    if (this.isClearingBots) return;
+    
+    if (!confirm('Are you sure you want to clear all bots from the database? This action cannot be undone.')) {
+      return;
+    }
+    
+    this.isClearingBots = true;
+    try {
+      const response = await this.meetingService.clearAllBots().toPromise();
+      if (response?.success) {
+        this.snackBar.open(response.message || 'All bots cleared successfully!', 'Close', { duration: 5000 });
+        await this.loadBotStats();
+      } else {
+        this.snackBar.open(response?.message || 'Failed to clear bots', 'Close', { duration: 5000 });
+      }
+    } catch (error) {
+      console.error('Error clearing all bots:', error);
+      this.snackBar.open('Failed to clear bots. Please try again.', 'Close', { duration: 5000 });
+    } finally {
+      this.isClearingBots = false;
+    }
+  }
+
+  async loadBotStats() {
+    try {
+      const response = await this.meetingService.getBotStats().toPromise();
+      if (response?.success && response.data) {
+        this.botStats = response.data;
+      }
+    } catch (error) {
+      console.error('Error loading bot stats:', error);
+    }
+  }
+
+  async syncMockBots() {
+    if (this.isSyncingMockBots) return;
+    
+    this.isSyncingMockBots = true;
+    try {
+      const response = await this.meetingService.syncMockBots().toPromise();
+      if (response?.success) {
+        this.snackBar.open(response.message || 'Mock bots added successfully!', 'Close', { duration: 5000 });
+        await this.loadBotStats();
+      } else {
+        this.snackBar.open(response?.message || 'Failed to add mock bots', 'Close', { duration: 5000 });
+      }
+    } catch (error) {
+      console.error('Error syncing mock bots:', error);
+      this.snackBar.open('Failed to add mock bots. Please try again.', 'Close', { duration: 5000 });
+    } finally {
+      this.isSyncingMockBots = false;
     }
   }
 }

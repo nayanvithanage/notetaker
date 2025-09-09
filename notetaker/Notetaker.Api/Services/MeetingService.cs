@@ -86,6 +86,8 @@ public class MeetingService : IMeetingService
                     .ThenInclude(gc => gc.Automation)
                 .Include(m => m.SocialPosts)
                     .ThenInclude(sp => sp.SocialAccount)
+                .Include(m => m.MeetingRecallBots)
+                    .ThenInclude(mrb => mrb.RecallBot)
                 .FirstOrDefaultAsync(m => m.Id == meetingId && m.UserId == userId);
 
             if (meeting == null)
@@ -106,8 +108,10 @@ public class MeetingService : IMeetingService
                 attendees = System.Text.Json.JsonSerializer.Deserialize<List<string>>(meeting.CalendarEvent.AttendeesJson) ?? new List<string>();
             }
 
-            _logger.LogInformation("GetMeetingDetailAsync - Meeting {MeetingId} has RecallBotId: {RecallBotId}", 
-                meetingId, meeting.RecallBotId);
+            var recallBotIds = meeting.MeetingRecallBots?.Select(mrb => mrb.RecallBot.BotId).ToList() ?? new List<string>();
+            
+            _logger.LogInformation("GetMeetingDetailAsync - Meeting {MeetingId} has RecallBotId: {RecallBotId}, BotIds: {BotIds}", 
+                meetingId, meeting.RecallBotId, string.Join(",", recallBotIds));
 
             var detail = new MeetingDetailDto
             {
@@ -125,7 +129,8 @@ public class MeetingService : IMeetingService
                 StartedAt = meeting.StartedAt,
                 EndedAt = meeting.EndedAt,
                 CreatedAt = meeting.CreatedAt,
-                RecallBotId = meeting.RecallBotId,
+                RecallBotId = meeting.RecallBotId, // Keep for backward compatibility
+                RecallBotIds = recallBotIds, // New field for multiple bots
                 TranscriptText = transcript?.TranscriptText,
                 SummaryJson = transcript?.SummaryJson,
                 MediaUrls = mediaUrls,
@@ -403,12 +408,34 @@ public class MeetingService : IMeetingService
             _logger.LogInformation("Selected best bot {BotId} for meeting {MeetingId}: Status={Status}, Duration={Duration}s",
                 bestBot.Id, meetingId, bestBot.Status, bestBot.RecordingDuration?.TotalSeconds ?? 0);
 
-            // Link the best bot to this meeting
+            // Link the best bot to this meeting (keep for backward compatibility)
             meeting.RecallBotId = bestBot.Id;
             meeting.Status = bestBot.Status == "done" ? "ready" : (bestBot.Status ?? "scheduled");
             meeting.StartedAt = bestBot.Start_time;
             meeting.EndedAt = bestBot.End_time;
             meeting.UpdatedAt = DateTime.UtcNow;
+
+            // Create junction table entries for ALL matching bots
+            var recallBot = await _context.RecallBots.FirstOrDefaultAsync(rb => rb.BotId == bestBot.Id);
+            if (recallBot != null)
+            {
+                // Check if junction entry already exists
+                var existingJunction = await _context.MeetingRecallBots
+                    .FirstOrDefaultAsync(mrb => mrb.MeetingId == meetingId && mrb.RecallBotId == recallBot.Id);
+                
+                if (existingJunction == null)
+                {
+                    var junctionEntry = new MeetingRecallBot
+                    {
+                        MeetingId = meetingId,
+                        RecallBotId = recallBot.Id,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    _context.MeetingRecallBots.Add(junctionEntry);
+                    _logger.LogInformation("Created junction entry for bot {BotId} and meeting {MeetingId}", bestBot.Id, meetingId);
+                }
+            }
 
             await _context.SaveChangesAsync();
 
@@ -583,10 +610,35 @@ public class MeetingService : IMeetingService
             meeting.Status = bestBot.CurrentStatus ?? "scheduled";
             meeting.UpdatedAt = DateTime.UtcNow;
 
+            // Create junction table entries for ALL matching bots
+            var recallBots = await _context.RecallBots
+                .Where(rb => matchingBots.Select(b => b.Id).Contains(rb.BotId))
+                .ToListAsync();
+
+            foreach (var recallBot in recallBots)
+            {
+                // Check if junction entry already exists
+                var existingJunction = await _context.MeetingRecallBots
+                    .FirstOrDefaultAsync(mrb => mrb.MeetingId == meetingId && mrb.RecallBotId == recallBot.Id);
+                
+                if (existingJunction == null)
+                {
+                    var junctionEntry = new MeetingRecallBot
+                    {
+                        MeetingId = meetingId,
+                        RecallBotId = recallBot.Id,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    _context.MeetingRecallBots.Add(junctionEntry);
+                    _logger.LogInformation("Created junction entry for bot {BotId} and meeting {MeetingId}", recallBot.BotId, meetingId);
+                }
+            }
+
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation("Re-synced meeting {MeetingId}: Changed from bot {OldBotId} to {NewBotId} (HasTranscript: {HasTranscript})", 
-                meetingId, oldBotId, bestBot.Id, bestBot.HasTranscript);
+            _logger.LogInformation("Re-synced meeting {MeetingId}: Changed from bot {OldBotId} to {NewBotId} (HasTranscript: {HasTranscript}), Total matching bots: {TotalBots}", 
+                meetingId, oldBotId, bestBot.Id, bestBot.HasTranscript, matchingBots.Count);
 
             return ApiResponse.SuccessResult($"Meeting re-synced with bot {bestBot.Id} (HasTranscript: {bestBot.HasTranscript})");
         }
