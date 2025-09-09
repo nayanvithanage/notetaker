@@ -111,7 +111,14 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:4200")
+        var allowedOrigins = new[]
+        {
+            "http://localhost:4200",
+            "https://notetaker-production.up.railway.app",
+            "https://notetaker-web-production.up.railway.app"
+        };
+        
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
