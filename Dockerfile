@@ -16,6 +16,10 @@ COPY notetaker/notetaker-web/ ./
 # Build frontend for production
 RUN npx ng build --configuration=railway
 
+# Debug: List the build output
+RUN ls -la dist/
+RUN find dist/ -name "*.html" -o -name "*.js" -o -name "*.css" | head -10
+
 # .NET build stage
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS api-builder
 
@@ -48,6 +52,10 @@ COPY --from=api-builder /app/publish .
 
 # Copy frontend build from frontend stage
 COPY --from=frontend-builder /app/frontend/dist/notetaker-web ./wwwroot
+
+# Debug: List contents to verify files are copied
+RUN ls -la ./wwwroot
+RUN find ./wwwroot -name "*.html" -o -name "*.js" -o -name "*.css" | head -10
 
 # Create logs directory
 RUN mkdir -p logs
