@@ -5,7 +5,7 @@
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build",
-    "build:railway": "ng build --configuration=railway",
+    "build:railway": "npx ng build --configuration=railway",
     "watch": "ng build --watch --configuration development",
     "test": "ng test"
   },
