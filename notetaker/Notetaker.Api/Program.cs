@@ -136,6 +136,7 @@ builder.Services.AddScoped<IMeetingService, MeetingService>();
 builder.Services.AddScoped<IAutomationService, AutomationService>();
 builder.Services.AddScoped<ICalendarService, NotetakerCalendarService>();
 builder.Services.AddScoped<IRecallAiService, RecallAiService>();
+builder.Services.AddScoped<IBotSyncService, BotSyncService>();
 builder.Services.AddScoped<Notetaker.Api.Jobs.BackgroundJobs>();
 
 // Configure HTTP clients

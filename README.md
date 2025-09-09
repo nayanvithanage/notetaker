@@ -133,6 +133,113 @@ Notetaker is a comprehensive meeting management and AI-powered content generatio
    **Application will be available at:**
    - **Frontend URL**: http://localhost:4200
 
+## 🔄 First-Time Setup & Data Syncing
+
+After cloning the repository and setting up the environment, you need to sync data to populate the application with meeting and bot information. Follow these steps to get your Notetaker application fully functional:
+
+### Step 1: Initial Data Sync
+
+1. **Start both backend and frontend applications** (as described above)
+
+2. **Access the application** at http://localhost:4200
+
+3. **Login with Google OAuth** to authenticate your account
+
+4. **Navigate to Settings page** (gear icon in the sidebar)
+
+### Step 2: Sync Calendar Events
+
+1. **Connect Google Calendar**:
+   - In Settings, find the "Google Calendar Integration" section
+   - Click "Connect Google Calendar"
+   - Complete the OAuth flow to grant calendar access
+   - This will sync your calendar events to the database
+
+2. **Sync Calendar Events**:
+   - Go to the "Meetings" page
+   - Click the "Sync Calendar" button
+   - This will download all calendar events from your Google Calendar
+   - Wait for the sync to complete (you'll see a success message)
+
+### Step 3: Sync Recall.ai Bots
+
+1. **Sync All Bots**:
+   - In Settings, find the "Bot Management" section
+   - Click "Sync All Bots" button
+   - This will download all your Recall.ai bots and their data
+   - Wait for the sync to complete
+
+2. **Verify Bot Data**:
+   - Check the "Bot Statistics" section to see how many bots were synced
+   - You should see bot counts and status information
+
+### Step 4: Create Meeting Records
+
+1. **Create Missing Meeting Records**:
+   - In the Meetings page, click "Sync Calendar" again
+   - This will now create meeting records for calendar events that have associated bots
+   - The system will automatically match bots to calendar events based on meeting URLs
+
+2. **Verify Meeting-Bot Associations**:
+   - Check your meetings list
+   - You should now see bot IDs displayed for meetings that have associated bots
+   - The "Notetaker" toggle should be enabled for meetings with bots
+
+### Step 5: Test the Complete Flow
+
+1. **View Meeting Details**:
+   - Click on any meeting with bot associations
+   - Verify that bot details are displayed correctly
+   - Check that transcripts and recordings are accessible
+
+2. **Test Content Generation**:
+   - For past meetings, try generating content
+   - Test social media post creation
+   - Verify follow-up email generation
+
+### Troubleshooting Data Sync Issues
+
+#### If Calendar Events Don't Appear:
+```bash
+# Check API logs for errors
+tail -f Notetaker.Api/logs/notetaker-*.txt
+
+# Verify Google Calendar API credentials
+# Check that OAuth scopes include calendar access
+```
+
+#### If Bot Data is Missing:
+```bash
+# Test Recall.ai API connection
+curl -H "Authorization: Token YOUR_RECALL_AI_API_KEY" \
+     https://us-west-2.recall.ai/api/v1/bot/
+
+# Check bot sync logs in the API console
+```
+
+#### If Meeting-Bot Associations Don't Work:
+- Verify that bot `MeetingId` fields match calendar event `JoinUrl` patterns
+- Check that the dynamic meeting creation process ran successfully
+- Look for "Meeting record synchronization completed" in the logs
+
+### Data Recovery After Deployment
+
+If you deploy to a new environment and lose meeting data:
+
+1. **The system will automatically recreate meeting records** when you access the Meetings page
+2. **No manual intervention required** - the dynamic meeting creation process handles this
+3. **All bot associations will be restored** based on existing calendar events and bot data
+
+### Expected Data Flow
+
+```
+Google Calendar → Calendar Events → Meeting Records ← Recall.ai Bots
+     ↓                ↓                    ↓              ↓
+  OAuth Sync    Database Storage    Junction Table    Bot Sync
+     ↓                ↓                    ↓              ↓
+  User Login    Meetings Page    Bot Associations    Bot Details
+```
+
 ### Database Access
 - **Adminer UI**: http://localhost:8080
 - **Server**: postgres

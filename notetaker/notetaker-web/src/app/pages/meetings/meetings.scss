@@ -279,20 +279,25 @@ mat-card-actions {
       font-size: 14px;
       font-weight: 400;
 
-      .bot-id-display {
+      .bot-ids-display {
         display: block;
         margin-top: 2px;
         font-size: 12px;
         color: #888;
 
-        code {
-          background-color: #f5f5f5;
-          padding: 1px 4px;
-          border-radius: 3px;
-          font-family: 'Roboto Mono', monospace;
-          font-size: 10px;
-          color: #333;
-          font-weight: 500;
+        .bot-id-display {
+          display: inline;
+          margin-right: 4px;
+
+          code {
+            background-color: #f5f5f5;
+            padding: 1px 4px;
+            border-radius: 3px;
+            font-family: 'Roboto Mono', monospace;
+            font-size: 10px;
+            color: #333;
+            font-weight: 500;
+          }
         }
       }
     }

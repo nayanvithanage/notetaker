@@ -227,6 +227,80 @@
                 </button>
               </div>
             </div>
+            
+            <div class="integration-item">
+              <div class="integration-info">
+                <mat-icon>storage</mat-icon>
+                <div>
+                  <h4>Sync All Bots</h4>
+                  <p>Download and store all bots from Recall.ai in the database</p>
+                </div>
+              </div>
+              <div class="integration-actions">
+                <button mat-raised-button color="accent" (click)="syncAllBots()" [disabled]="isSyncingBots">
+                  <mat-icon *ngIf="!isSyncingBots">cloud_download</mat-icon>
+                  <mat-icon *ngIf="isSyncingBots" class="spinning">refresh</mat-icon>
+                  <span>{{ isSyncingBots ? 'Syncing...' : 'Sync All Bots' }}</span>
+                </button>
+                <button mat-button color="warn" (click)="clearAllBots()" [disabled]="isClearingBots">
+                  <mat-icon *ngIf="!isClearingBots">delete</mat-icon>
+                  <mat-icon *ngIf="isClearingBots" class="spinning">refresh</mat-icon>
+                  <span>{{ isClearingBots ? 'Clearing...' : 'Clear All' }}</span>
+                </button>
+              </div>
+            </div>
+            
+            <div class="integration-item">
+              <div class="integration-info">
+                <mat-icon>bug_report</mat-icon>
+                <div>
+                  <h4>Test with Mock Data</h4>
+                  <p>Add sample bot data for testing purposes</p>
+                </div>
+              </div>
+              <div class="integration-actions">
+                <button mat-raised-button color="primary" (click)="syncMockBots()" [disabled]="isSyncingMockBots">
+                  <mat-icon *ngIf="!isSyncingMockBots">play_arrow</mat-icon>
+                  <mat-icon *ngIf="isSyncingMockBots" class="spinning">refresh</mat-icon>
+                  <span>{{ isSyncingMockBots ? 'Adding...' : 'Add Mock Data' }}</span>
+                </button>
+              </div>
+            </div>
+            
+            <!-- Bot Statistics -->
+            <div class="bot-stats" *ngIf="botStats">
+              <h4>Bot Statistics</h4>
+              <div class="stats-grid">
+                <div class="stat-item">
+                  <mat-icon>smart_toy</mat-icon>
+                  <div>
+                    <span class="stat-number">{{ botStats.totalBots }}</span>
+                    <span class="stat-label">Total Bots</span>
+                  </div>
+                </div>
+                <div class="stat-item">
+                  <mat-icon>check_circle</mat-icon>
+                  <div>
+                    <span class="stat-number">{{ botStats.activeBots }}</span>
+                    <span class="stat-label">Active</span>
+                  </div>
+                </div>
+                <div class="stat-item">
+                  <mat-icon>transcript</mat-icon>
+                  <div>
+                    <span class="stat-number">{{ botStats.botsWithTranscripts }}</span>
+                    <span class="stat-label">With Transcripts</span>
+                  </div>
+                </div>
+                <div class="stat-item">
+                  <mat-icon>schedule</mat-icon>
+                  <div>
+                    <span class="stat-number">{{ botStats.lastSyncTime | date:'short' }}</span>
+                    <span class="stat-label">Last Sync</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </mat-card-content>
           
           <mat-card-actions>

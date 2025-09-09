@@ -19,6 +19,8 @@ public class NotetakerDbContext : DbContext
     public DbSet<GeneratedContent> GeneratedContents { get; set; }
     public DbSet<SocialAccount> SocialAccounts { get; set; }
     public DbSet<SocialPost> SocialPosts { get; set; }
+    public DbSet<RecallBot> RecallBots { get; set; }
+    public DbSet<MeetingRecallBot> MeetingRecallBots { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -199,6 +201,44 @@ public class NotetakerDbContext : DbContext
             entity.Property(e => e.Error).HasMaxLength(1000);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+        });
+
+        // RecallBot configuration
+        modelBuilder.Entity<RecallBot>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.BotId).IsRequired().HasMaxLength(255);
+            entity.Property(e => e.MeetingId).HasMaxLength(255);
+            entity.Property(e => e.Platform).HasMaxLength(100);
+            entity.Property(e => e.BotName).HasMaxLength(255);
+            entity.Property(e => e.Status).HasMaxLength(50);
+            entity.Property(e => e.CurrentStatus).HasMaxLength(50);
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            
+            // Add unique constraint on BotId
+            entity.HasIndex(e => e.BotId).IsUnique();
+        });
+
+        // MeetingRecallBot configuration (junction table)
+        modelBuilder.Entity<MeetingRecallBot>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasOne(e => e.Meeting)
+                .WithMany(e => e.MeetingRecallBots)
+                .HasForeignKey(e => e.MeetingId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.RecallBot)
+                .WithMany(e => e.MeetingRecallBots)
+                .HasForeignKey(e => e.RecallBotId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            
+            // Add unique constraint to prevent duplicate bot-meeting associations
+            entity.HasIndex(e => new { e.MeetingId, e.RecallBotId })
+                .IsUnique()
+                .HasDatabaseName("IX_MeetingRecallBots_MeetingId_RecallBotId");
         });
     }
 }

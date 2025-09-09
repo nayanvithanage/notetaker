@@ -10,7 +10,8 @@ export interface Meeting {
   notetakerEnabled: boolean;
   status: 'scheduled' | 'ready' | 'processing' | 'failed' | 'recording' | 'cancelled';
   calendarEventId: string;
-  recallBotId?: string;
+  recallBotId?: string; // Keep for backward compatibility
+  recallBotIds?: string[]; // New field for multiple bots
   createdAt: string;
   updatedAt: string;
 }

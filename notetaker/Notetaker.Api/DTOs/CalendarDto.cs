@@ -15,7 +15,8 @@ public class CalendarEventDto
     public DateTime CreatedAt { get; set; }
     // Meeting data
     public int? MeetingId { get; set; }
-    public string? RecallBotId { get; set; }
+    public string? RecallBotId { get; set; } // Keep for backward compatibility
+    public List<string> RecallBotIds { get; set; } = new(); // New field for multiple bots
     public string? MeetingStatus { get; set; }
 }
 

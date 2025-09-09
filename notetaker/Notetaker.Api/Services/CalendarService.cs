@@ -154,17 +154,24 @@ public class NotetakerCalendarService : ICalendarService
             var fromDate = from ?? DateTime.UtcNow.AddDays(-7);
             var toDate = to ?? DateTime.UtcNow.AddDays(30);
 
+            // First, ensure meeting records exist for all calendar events with bots
+            await EnsureMeetingRecordsExistAsync(userId, fromDate, toDate);
+
             var events = await _context.CalendarEvents
                 .Include(ce => ce.GoogleCalendarAccount)
                 .Include(ce => ce.Meetings)
+                    .ThenInclude(m => m.MeetingRecallBots)
+                        .ThenInclude(mrb => mrb.RecallBot)
                 .Where(ce => ce.UserId == userId && ce.StartsAt >= fromDate && ce.StartsAt <= toDate)
                 .OrderBy(ce => ce.StartsAt)
                 .ToListAsync();
 
             var eventDtos = events.Select(ce => {
                 var meeting = ce.Meetings?.FirstOrDefault();
-                _logger.LogInformation("Calendar Event {EventId}: Meetings count = {Count}, Meeting = {Meeting}", 
-                    ce.Id, ce.Meetings?.Count ?? 0, meeting != null ? $"Id={meeting.Id}, RecallBotId={meeting.RecallBotId}, Status={meeting.Status}" : "null");
+                var recallBotIds = meeting?.MeetingRecallBots?.Select(mrb => mrb.RecallBot.BotId).ToList() ?? new List<string>();
+                
+                _logger.LogInformation("Calendar Event {EventId}: Meetings count = {Count}, Meeting = {Meeting}, BotIds = {BotIds}", 
+                    ce.Id, ce.Meetings?.Count ?? 0, meeting != null ? $"Id={meeting.Id}, RecallBotId={meeting.RecallBotId}, Status={meeting.Status}" : "null", string.Join(",", recallBotIds));
                 
                 return new CalendarEventDto
                 {
@@ -181,7 +188,8 @@ public class NotetakerCalendarService : ICalendarService
                     CreatedAt = ce.CreatedAt,
                     // Include meeting data - get the first meeting for this calendar event
                     MeetingId = meeting?.Id,
-                    RecallBotId = meeting?.RecallBotId,
+                    RecallBotId = meeting?.RecallBotId, // Keep for backward compatibility
+                    RecallBotIds = recallBotIds, // New field for multiple bots
                     MeetingStatus = meeting?.Status
                 };
             }).ToList();
@@ -1135,14 +1143,16 @@ public class NotetakerCalendarService : ICalendarService
                 calendarEventId, bestBot.Id, bestBot.Status, bestBot.RecordingDuration);
 
             // Create or update the meeting record
+            Meeting meetingToUpdate = null;
             if (existingMeeting != null)
             {
                 // Update existing meeting
-                existingMeeting.RecallBotId = bestBot.Id;
+                existingMeeting.RecallBotId = bestBot.Id; // Keep for backward compatibility
                 existingMeeting.Status = bestBot.Status ?? "scheduled";
                 existingMeeting.StartedAt = bestBot.Start_time;
                 existingMeeting.EndedAt = bestBot.End_time;
                 existingMeeting.UpdatedAt = DateTime.UtcNow;
+                meetingToUpdate = existingMeeting;
                 
                 _logger.LogInformation("Updated existing meeting {MeetingId} with bot {BotId}", 
                     existingMeeting.Id, bestBot.Id);
@@ -1154,7 +1164,7 @@ public class NotetakerCalendarService : ICalendarService
                 {
                     UserId = userId,
                     CalendarEventId = calendarEventId,
-                    RecallBotId = bestBot.Id,
+                    RecallBotId = bestBot.Id, // Keep for backward compatibility
                     Status = bestBot.Status,
                     Platform = calendarEvent.Platform,
                     StartedAt = bestBot.Start_time,
@@ -1164,11 +1174,35 @@ public class NotetakerCalendarService : ICalendarService
                 };
 
                 _context.Meetings.Add(newMeeting);
+                meetingToUpdate = newMeeting;
                 _logger.LogInformation("Created new meeting record for calendar event {CalendarEventId} with bot {BotId}", 
                     calendarEventId, bestBot.Id);
             }
 
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(); // Save to get the meeting ID
+
+            // Create junction table entry for the bot
+            var recallBot = await _context.RecallBots.FirstOrDefaultAsync(rb => rb.BotId == bestBot.Id);
+            if (recallBot != null && meetingToUpdate != null)
+            {
+                // Check if junction entry already exists
+                var existingJunction = await _context.MeetingRecallBots
+                    .FirstOrDefaultAsync(mrb => mrb.MeetingId == meetingToUpdate.Id && mrb.RecallBotId == recallBot.Id);
+                
+                if (existingJunction == null)
+                {
+                    var junctionEntry = new MeetingRecallBot
+                    {
+                        MeetingId = meetingToUpdate.Id,
+                        RecallBotId = recallBot.Id,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    _context.MeetingRecallBots.Add(junctionEntry);
+                    _logger.LogInformation("Created junction entry for bot {BotId} and meeting {MeetingId}", bestBot.Id, meetingToUpdate.Id);
+                    await _context.SaveChangesAsync();
+                }
+            }
 
             // If the bot is "done", trigger transcript fetching
             if (bestBot.Status == "done")
@@ -1390,7 +1424,7 @@ public class NotetakerCalendarService : ICalendarService
         }
     }
 
-    private async Task<ApiResponse> CreateMissingMeetingRecordsAsync(int userId)
+    public async Task<ApiResponse> CreateMissingMeetingRecordsAsync(int userId)
     {
         try
         {
@@ -1458,6 +1492,165 @@ public class NotetakerCalendarService : ICalendarService
             _logger.LogError(ex, "Error creating missing meeting records for user {UserId}", userId);
             return ApiResponse.ErrorResult($"Failed to create meeting records: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Dynamically creates meeting records by joining CalendarEvents and RecallBots tables.
+    /// This ensures that meeting data is not lost when deploying to new environments.
+    /// </summary>
+    private async Task EnsureMeetingRecordsExistAsync(int userId, DateTime fromDate, DateTime toDate)
+    {
+        try
+        {
+            _logger.LogInformation("Ensuring meeting records exist for user {UserId} from {FromDate} to {ToDate}", 
+                userId, fromDate, toDate);
+
+            // Get all calendar events in the date range
+            var calendarEvents = await _context.CalendarEvents
+                .Where(ce => ce.UserId == userId && ce.StartsAt >= fromDate && ce.StartsAt <= toDate)
+                .ToListAsync();
+
+            // Get all recall bots that have meeting URLs matching our calendar events
+            var calendarEventJoinUrls = calendarEvents
+                .Where(ce => !string.IsNullOrEmpty(ce.JoinUrl))
+                .Select(ce => ce.JoinUrl)
+                .ToList();
+
+            var recallBots = await _context.RecallBots
+                .Where(rb => !string.IsNullOrEmpty(rb.MeetingId) && 
+                             calendarEventJoinUrls.Any(joinUrl => joinUrl.Contains(rb.MeetingId)))
+                .ToListAsync();
+
+            _logger.LogInformation("Found {CalendarEventCount} calendar events and {RecallBotCount} recall bots to process", 
+                calendarEvents.Count, recallBots.Count);
+
+            var createdCount = 0;
+            var updatedCount = 0;
+
+            foreach (var calendarEvent in calendarEvents)
+            {
+                if (string.IsNullOrEmpty(calendarEvent.JoinUrl))
+                    continue;
+
+                // Find bots that match this calendar event's join URL
+                var matchingBots = recallBots.Where(rb => 
+                    !string.IsNullOrEmpty(rb.MeetingId) && 
+                    calendarEvent.JoinUrl.Contains(rb.MeetingId))
+                    .ToList();
+
+                if (!matchingBots.Any())
+                    continue;
+
+                // Check if meeting record already exists
+                var existingMeeting = await _context.Meetings
+                    .Include(m => m.MeetingRecallBots)
+                    .FirstOrDefaultAsync(m => m.CalendarEventId == calendarEvent.Id && m.UserId == userId);
+
+                if (existingMeeting == null)
+                {
+                    // Create new meeting record
+                    var meeting = new Meeting
+                    {
+                        UserId = userId,
+                        CalendarEventId = calendarEvent.Id,
+                        RecallBotId = matchingBots.First().BotId, // Keep for backward compatibility
+                        Status = GetBestStatusFromBots(matchingBots),
+                        Platform = calendarEvent.Platform,
+                        StartedAt = GetEarliestStartTime(matchingBots),
+                        EndedAt = GetLatestEndTime(matchingBots),
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+
+                    _context.Meetings.Add(meeting);
+                    await _context.SaveChangesAsync(); // Save to get the meeting ID
+
+                    // Create junction table entries for all matching bots
+                    foreach (var bot in matchingBots)
+                    {
+                        var junctionEntry = new MeetingRecallBot
+                        {
+                            MeetingId = meeting.Id,
+                            RecallBotId = bot.Id,
+                            CreatedAt = DateTime.UtcNow,
+                            UpdatedAt = DateTime.UtcNow
+                        };
+                        _context.MeetingRecallBots.Add(junctionEntry);
+                    }
+
+                    createdCount++;
+                    _logger.LogInformation("Created meeting {MeetingId} for calendar event {CalendarEventId} with {BotCount} bots", 
+                        meeting.Id, calendarEvent.Id, matchingBots.Count);
+                }
+                else
+                {
+                    // Update existing meeting with any new bots
+                    var existingBotIds = existingMeeting.MeetingRecallBots.Select(mrb => mrb.RecallBotId).ToList();
+                    var newBots = matchingBots.Where(b => !existingBotIds.Contains(b.Id)).ToList();
+
+                    if (newBots.Any())
+                    {
+                        foreach (var bot in newBots)
+                        {
+                            var junctionEntry = new MeetingRecallBot
+                            {
+                                MeetingId = existingMeeting.Id,
+                                RecallBotId = bot.Id,
+                                CreatedAt = DateTime.UtcNow,
+                                UpdatedAt = DateTime.UtcNow
+                            };
+                            _context.MeetingRecallBots.Add(junctionEntry);
+                        }
+
+                        // Update meeting status and times
+                        existingMeeting.Status = GetBestStatusFromBots(matchingBots);
+                        existingMeeting.StartedAt = GetEarliestStartTime(matchingBots);
+                        existingMeeting.EndedAt = GetLatestEndTime(matchingBots);
+                        existingMeeting.UpdatedAt = DateTime.UtcNow;
+
+                        updatedCount++;
+                        _logger.LogInformation("Updated meeting {MeetingId} for calendar event {CalendarEventId} with {NewBotCount} new bots", 
+                            existingMeeting.Id, calendarEvent.Id, newBots.Count);
+                    }
+                }
+            }
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Meeting record synchronization completed. Created: {CreatedCount}, Updated: {UpdatedCount}", 
+                createdCount, updatedCount);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error ensuring meeting records exist for user {UserId}", userId);
+            throw;
+        }
+    }
+
+    private string GetBestStatusFromBots(List<RecallBot> bots)
+    {
+        if (!bots.Any()) return "scheduled";
+
+        // Priority order: completed > recording > scheduled
+        if (bots.Any(b => b.Status == "completed")) return "completed";
+        if (bots.Any(b => b.Status == "recording")) return "recording";
+        return "scheduled";
+    }
+
+    private DateTime? GetEarliestStartTime(List<RecallBot> bots)
+    {
+        return bots
+            .Where(b => b.StartTime.HasValue)
+            .OrderBy(b => b.StartTime)
+            .FirstOrDefault()?.StartTime;
+    }
+
+    private DateTime? GetLatestEndTime(List<RecallBot> bots)
+    {
+        return bots
+            .Where(b => b.EndTime.HasValue)
+            .OrderByDescending(b => b.EndTime)
+            .FirstOrDefault()?.EndTime;
     }
 
 }

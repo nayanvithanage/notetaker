@@ -115,6 +115,14 @@ public class CalendarController : ControllerBase
         return result.Success ? Ok(result) : BadRequest(result);
     }
 
+    [HttpPost("sync:create-meetings")]
+    public async Task<IActionResult> CreateMissingMeetings()
+    {
+        var userId = GetCurrentUserId();
+        var result = await _calendarService.CreateMissingMeetingRecordsAsync(userId);
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
     [HttpPost("bot-settings")]
     public IActionResult UpdateBotSettings([FromBody] BotSettingsDto request)
     {

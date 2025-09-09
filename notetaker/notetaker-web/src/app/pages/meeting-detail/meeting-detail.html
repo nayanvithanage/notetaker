@@ -75,7 +75,34 @@
     </mat-card>
   </div>
 
-  <mat-tab-group [(selectedIndex)]="selectedTab" class="content-tabs">
+  <!-- Upcoming Meeting Content -->
+  <div *ngIf="isUpcomingMeeting()" class="upcoming-meeting-content">
+    <mat-card class="content-card">
+      <mat-card-header>
+        <mat-card-title>Meeting Details</mat-card-title>
+        <mat-card-subtitle>Upcoming meeting information and bot status</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="bot-status-section" *ngIf="getBotIds().length > 0">
+          <h3>Assigned Bots</h3>
+          <div class="bot-list">
+            <div *ngFor="let botId of getBotIds()" class="bot-item">
+              <mat-icon>robot</mat-icon>
+              <span>Bot ID: <code>{{ botId }}</code></span>
+              <mat-chip color="primary" selected>Active</mat-chip>
+            </div>
+          </div>
+        </div>
+        <div *ngIf="getBotIds().length === 0" class="no-bots-message">
+          <mat-icon>info</mat-icon>
+          <p>No bots assigned to this meeting yet. Enable notetaker to assign bots.</p>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Past Meeting Content -->
+  <mat-tab-group *ngIf="isPastMeeting()" [(selectedIndex)]="selectedTab" class="content-tabs">
     <!-- Transcript Tab -->
     <mat-tab label="Transcript">
       <div class="tab-content">
@@ -83,9 +110,11 @@
           <mat-card-header>
             <mat-card-title>
               Meeting Transcript
-              <span *ngIf="meeting.recallBotId" class="bot-id-title">
-                • Bot: <code>{{ meeting.recallBotId }}</code>
-              </span>
+              <div *ngIf="getBotIds().length > 0" class="bot-ids-title">
+                <span *ngFor="let botId of getBotIds(); let last = last" class="bot-id-title">
+                  • Bot: <code>{{ botId }}</code><span *ngIf="!last">, </span>
+                </span>
+              </div>
             </mat-card-title>
             <mat-card-subtitle>
               AI-generated transcript from the meeting
