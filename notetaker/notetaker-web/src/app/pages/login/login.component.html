@@ -1,31 +1,67 @@
 <div class="login-container">
-  <mat-card class="login-card">
-    <mat-card-header>
-      <mat-card-title>Welcome to Notetaker</mat-card-title>
-      <mat-card-subtitle>Sign in to manage your meetings and automations</mat-card-subtitle>
-    </mat-card-header>
-    
-    <mat-card-content>
-      <div class="login-content">
-        <div class="logo">
+  <!-- Background Elements -->
+  <div class="background-shapes">
+    <div class="shape shape-1"></div>
+    <div class="shape shape-2"></div>
+    <div class="shape shape-3"></div>
+  </div>
+  
+  <!-- Main Login Card -->
+  <div class="login-card">
+    <!-- Header Section -->
+    <div class="login-header">
+      <div class="logo-container">
+        <div class="logo-icon">
           <mat-icon>event_note</mat-icon>
-          <h2>Notetaker</h2>
         </div>
-        
-        <p>Connect your Google account to get started with intelligent meeting management.</p>
+        <h1 class="app-title">Notetaker</h1>
       </div>
-    </mat-card-content>
+      <p class="welcome-text">Welcome back</p>
+      <p class="subtitle">Sign in to manage your meetings and automations</p>
+    </div>
     
-    <mat-card-actions>
+    <!-- Content Section -->
+    <div class="login-content">
+      <div class="features-list">
+        <div class="feature-item">
+          <mat-icon>schedule</mat-icon>
+          <span>Smart meeting scheduling</span>
+        </div>
+        <div class="feature-item">
+          <mat-icon>auto_awesome</mat-icon>
+          <span>AI-powered automations</span>
+        </div>
+        <div class="feature-item">
+          <mat-icon>security</mat-icon>
+          <span>Secure & private</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Action Section -->
+    <div class="login-actions">
       <button 
         mat-raised-button 
-        color="primary" 
         (click)="loginWithGoogle()"
         [disabled]="isLoading"
-        class="login-button">
-        <mat-icon>login</mat-icon>
-        {{ isLoading ? 'Signing in...' : 'Sign in with Google' }}
+        class="google-login-button">
+        <div class="button-content">
+          <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google" class="google-icon">
+          <span>{{ isLoading ? 'Signing in...' : 'Continue with Google' }}</span>
+        </div>
+        <mat-spinner *ngIf="isLoading" diameter="20" class="button-spinner"></mat-spinner>
       </button>
-    </mat-card-actions>
-  </mat-card>
+      
+      <p class="privacy-note">
+        By signing in, you agree to our 
+        <a href="#" class="privacy-link">Terms of Service</a> and 
+        <a href="#" class="privacy-link">Privacy Policy</a>
+      </p>
+    </div>
+  </div>
+  
+  <!-- Footer -->
+  <div class="login-footer">
+    <p>&copy; 2024 Notetaker. All rights reserved.</p>
+  </div>
 </div>
