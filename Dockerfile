@@ -56,7 +56,7 @@ RUN mkdir -p logs
 EXPOSE 8080
 
 # Set environment variables
-ENV ASPNETCORE_URLS=http://0.0.0.0:8080
+ENV ASPNETCORE_URLS=http://0.0.0.0:$PORT
 ENV ASPNETCORE_ENVIRONMENT=Production
 
 # Start the application
