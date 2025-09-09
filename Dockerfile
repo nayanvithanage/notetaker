@@ -52,11 +52,11 @@ COPY --from=frontend-builder /app/frontend/dist/notetaker-web ./wwwroot
 # Create logs directory
 RUN mkdir -p logs
 
-# Expose port
-EXPOSE 8080
+# Expose port (Railway will set the actual port)
+EXPOSE $PORT
 
 # Set environment variables
-ENV ASPNETCORE_URLS=http://0.0.0.0:8080
+ENV ASPNETCORE_URLS=http://0.0.0.0:$PORT
 ENV ASPNETCORE_ENVIRONMENT=Production
 
 # Start the application
