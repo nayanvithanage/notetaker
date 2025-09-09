@@ -181,6 +181,13 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
 
 app.MapControllers();
 
+// Serve static files from wwwroot
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
+// Fallback to index.html for Angular routing
+app.MapFallbackToFile("index.html");
+
 // Ensure database is created (temporarily disabled for debugging)
 // using (var scope = app.Services.CreateScope())
 // {
