@@ -1,49 +1,338 @@
+// Professional Login Screen Styles
 .login-container {
+  position: relative;
+  min-height: 100vh;
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
-  min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
   padding: 20px;
+  overflow: hidden;
 }
 
-.login-card {
-  max-width: 400px;
+// Animated Background Shapes
+.background-shapes {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.shape {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  animation: float 6s ease-in-out infinite;
+  
+  &.shape-1 {
+    width: 200px;
+    height: 200px;
+    top: 10%;
+    left: 10%;
+    animation-delay: 0s;
+  }
+  
+  &.shape-2 {
+    width: 150px;
+    height: 150px;
+    top: 60%;
+    right: 15%;
+    animation-delay: 2s;
+  }
+  
+  &.shape-3 {
+    width: 100px;
+    height: 100px;
+    bottom: 20%;
+    left: 20%;
+    animation-delay: 4s;
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-20px) rotate(180deg);
+  }
+}
+
+// Main Login Card
+.login-card {
+  position: relative;
+  z-index: 1;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-radius: 24px;
+  padding: 48px 40px;
+  max-width: 480px;
+  width: 100%;
+  box-shadow: 
+    0 20px 40px rgba(0, 0, 0, 0.1),
+    0 0 0 1px rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  animation: slideUp 0.8s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// Header Section
+.login-header {
   text-align: center;
+  margin-bottom: 40px;
 }
 
-.login-content {
-  padding: 20px 0;
-}
-
-.logo {
+.logo-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+}
+
+.logo-icon {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
   
   mat-icon {
-    font-size: 48px;
-    width: 48px;
-    height: 48px;
-    color: #1976d2;
-    margin-bottom: 10px;
-  }
-  
-  h2 {
-    margin: 0;
-    color: #333;
-    font-weight: 300;
+    font-size: 40px;
+    width: 40px;
+    height: 40px;
+    color: white;
   }
 }
 
-.login-button {
-  width: 100%;
-  height: 48px;
+.app-title {
+  font-size: 32px;
+  font-weight: 700;
+  color: #2d3748;
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+
+.welcome-text {
+  font-size: 18px;
+  color: #4a5568;
+  margin: 0 0 8px 0;
+  font-weight: 500;
+}
+
+.subtitle {
   font-size: 16px;
+  color: #718096;
+  margin: 0;
+  line-height: 1.5;
+}
+
+// Content Section
+.login-content {
+  margin-bottom: 40px;
+}
+
+.features-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.feature-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: rgba(102, 126, 234, 0.05);
+  border-radius: 12px;
+  border: 1px solid rgba(102, 126, 234, 0.1);
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background: rgba(102, 126, 234, 0.1);
+    transform: translateX(4px);
+  }
   
   mat-icon {
-    margin-right: 8px;
+    color: #667eea;
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+  
+  span {
+    color: #4a5568;
+    font-size: 14px;
+    font-weight: 500;
   }
 }
+
+// Action Section
+.login-actions {
+  text-align: center;
+}
+
+.google-login-button {
+  position: relative;
+  width: 100%;
+  height: 56px;
+  background: #4285f4 !important;
+  color: white !important;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 16px rgba(66, 133, 244, 0.3);
+  transition: all 0.3s ease;
+  border: none;
+  overflow: hidden;
+  
+  &:hover:not(:disabled) {
+    background: #3367d6 !important;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(66, 133, 244, 0.4);
+  }
+  
+  &:active {
+    transform: translateY(0);
+  }
+  
+  &:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+}
+
+.button-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.google-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.button-spinner {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.privacy-note {
+  margin-top: 24px;
+  font-size: 12px;
+  color: #718096;
+  line-height: 1.5;
+  
+  .privacy-link {
+    color: #667eea;
+    text-decoration: none;
+    font-weight: 500;
+    
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}
+
+// Footer
+.login-footer {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1;
+  
+  p {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 12px;
+    margin: 0;
+  }
+}
+
+// Responsive Design
+@media (max-width: 640px) {
+  .login-card {
+    padding: 32px 24px;
+    margin: 0 16px;
+  }
+  
+  .app-title {
+    font-size: 28px;
+  }
+  
+  .logo-icon {
+    width: 64px;
+    height: 64px;
+    
+    mat-icon {
+      font-size: 32px;
+      width: 32px;
+      height: 32px;
+    }
+  }
+  
+  .features-list {
+    gap: 12px;
+  }
+  
+  .feature-item {
+    padding: 10px 12px;
+    
+    span {
+      font-size: 13px;
+    }
+  }
+}
+
+// Dark mode support
+@media (prefers-color-scheme: dark) {
+  .login-card {
+    background: rgba(26, 32, 44, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  .app-title {
+    color: #f7fafc;
+  }
+  
+  .welcome-text {
+    color: #e2e8f0;
+  }
+  
+  .subtitle {
+    color: #a0aec0;
+  }
+  
+  .feature-item {
+    background: rgba(102, 126, 234, 0.1);
+    border: 1px solid rgba(102, 126, 234, 0.2);
+    
+    span {
+      color: #e2e8f0;
+    }
+  }
+}
+
