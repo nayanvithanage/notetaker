@@ -391,7 +391,38 @@ export const environment = {
 
 ## 🚀 Deployment
 
-### Backend Deployment
+### Railway Deployment (Recommended)
+
+The application is configured for easy deployment on Railway with both frontend and backend in a single container.
+
+#### Quick Start
+1. **Install Railway CLI**
+   ```bash
+   npm install -g @railway/cli
+   railway login
+   ```
+
+2. **Deploy the application**
+   ```bash
+   railway link
+   railway up
+   ```
+
+3. **Set environment variables** in Railway dashboard (see `RAILWAY_DEPLOYMENT.md` for complete list)
+
+4. **Add PostgreSQL database** in Railway dashboard
+
+#### Manual Deployment
+1. **Push to GitHub** and connect to Railway
+2. **Configure environment variables** (see `RAILWAY_DEPLOYMENT.md`)
+3. **Add PostgreSQL database** service
+4. **Deploy** - Railway will automatically build and deploy
+
+For detailed Railway deployment instructions, see [RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md).
+
+### Other Deployment Options
+
+#### Backend Deployment
 1. **Build the application**
    ```bash
    dotnet publish -c Release -o ./publish
@@ -407,7 +438,7 @@ export const environment = {
    - AWS Elastic Beanstalk
    - Docker container
 
-### Frontend Deployment
+#### Frontend Deployment
 1. **Build for production**
    ```bash
    ng build --configuration production
