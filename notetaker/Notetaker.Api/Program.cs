@@ -13,6 +13,12 @@ using Hangfire.PostgreSql;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configure for Railway deployment
+if (Environment.GetEnvironmentVariable("RAILWAY_ENVIRONMENT") != null)
+{
+    builder.Configuration.AddJsonFile("appsettings.Railway.json", optional: false, reloadOnChange: true);
+}
+
 // Configure Serilog
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
