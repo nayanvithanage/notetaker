@@ -123,6 +123,7 @@ builder.Services.AddCors(options =>
         var allowedOrigins = new[]
         {
             "http://localhost:4200",
+            "https://notetaker-production-0954.up.railway.app",
             "https://notetaker-production.up.railway.app",
             "https://notetaker-web-production.up.railway.app"
         };
@@ -191,12 +192,13 @@ app.UseStaticFiles();
 // Fallback to index.html for Angular routing
 app.MapFallbackToFile("index.html");
 
-// Ensure database is created (temporarily disabled for debugging)
-// using (var scope = app.Services.CreateScope())
-// {
-//     var context = scope.ServiceProvider.GetRequiredService<NotetakerDbContext>();
-//     context.Database.EnsureCreated();
-// }
+// Ensure database is created and migrated
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<NotetakerDbContext>();
+    context.Database.EnsureCreated();
+    context.Database.Migrate();
+}
 
 // Configure background jobs (temporarily disabled for debugging)
 // using (var scope = app.Services.CreateScope())
