@@ -175,19 +175,19 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
 
 app.MapControllers();
 
-// Ensure database is created
-using (var scope = app.Services.CreateScope())
-{
-    var context = scope.ServiceProvider.GetRequiredService<NotetakerDbContext>();
-    context.Database.EnsureCreated();
-}
+// Ensure database is created (temporarily disabled for debugging)
+// using (var scope = app.Services.CreateScope())
+// {
+//     var context = scope.ServiceProvider.GetRequiredService<NotetakerDbContext>();
+//     context.Database.EnsureCreated();
+// }
 
-// Configure background jobs
-using (var scope = app.Services.CreateScope())
-{
-    var backgroundJobs = scope.ServiceProvider.GetRequiredService<Notetaker.Api.Jobs.BackgroundJobs>();
-    Notetaker.Api.Jobs.BackgroundJobs.ConfigureRecurringJobs();
-}
+// Configure background jobs (temporarily disabled for debugging)
+// using (var scope = app.Services.CreateScope())
+// {
+//     var backgroundJobs = scope.ServiceProvider.GetRequiredService<Notetaker.Api.Jobs.BackgroundJobs>();
+//     Notetaker.Api.Jobs.BackgroundJobs.ConfigureRecurringJobs();
+// }
 
 app.Run();
 
