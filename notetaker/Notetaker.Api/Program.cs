@@ -17,11 +17,11 @@ var builder = WebApplication.CreateBuilder(args);
 if (Environment.GetEnvironmentVariable("RAILWAY_ENVIRONMENT") != null)
 {
     builder.Configuration.AddJsonFile("appsettings.Railway.json", optional: false, reloadOnChange: true);
-    
-    // Set the port from Railway's PORT environment variable
-    var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
-    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 }
+
+// Configure port for Railway
+var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
+builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 
 // Configure Serilog
 Log.Logger = new LoggerConfiguration()
