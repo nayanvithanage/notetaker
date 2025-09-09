@@ -264,11 +264,101 @@
   left: 50%;
   transform: translateX(-50%);
   z-index: 1;
-  
+  width: 100%;
+  max-width: 480px;
+  padding: 0 20px;
+}
+
+.footer-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+}
+
+.footer-brand {
   p {
     color: rgba(255, 255, 255, 0.8);
     font-size: 12px;
     margin: 0;
+  }
+}
+
+.footer-developer {
+  p {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 13px;
+    margin: 0 0 12px 0;
+    font-weight: 500;
+    
+    strong {
+      color: white;
+      font-weight: 600;
+    }
+  }
+}
+
+.developer-links {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.footer-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.8);
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s ease;
+  
+  &:hover {
+    color: white;
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  }
+  
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+}
+
+// Responsive footer
+@media (max-width: 640px) {
+  .login-footer {
+    bottom: 16px;
+    padding: 0 16px;
+  }
+  
+  .footer-content {
+    gap: 12px;
+  }
+  
+  .developer-links {
+    gap: 12px;
+  }
+  
+  .footer-link {
+    font-size: 11px;
+    padding: 4px 8px;
+    
+    mat-icon {
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
+    }
   }
 }
 
