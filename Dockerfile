@@ -52,7 +52,7 @@ COPY --from=frontend-builder /app/frontend/dist/notetaker-web ./wwwroot
 # Create logs directory
 RUN mkdir -p logs
 
-# Expose port (Railway will set the actual port)
+# Expose port 8080 for Railway
 EXPOSE 8080
 
 # Set environment variables

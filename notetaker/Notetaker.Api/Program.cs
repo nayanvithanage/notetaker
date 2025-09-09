@@ -19,9 +19,8 @@ if (Environment.GetEnvironmentVariable("RAILWAY_ENVIRONMENT") != null)
     builder.Configuration.AddJsonFile("appsettings.Railway.json", optional: false, reloadOnChange: true);
 }
 
-// Configure port for Railway
-var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
-builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+// Configure port for Railway - use 8080 as Railway expects
+builder.WebHost.UseUrls("http://0.0.0.0:8080");
 
 // Configure Serilog
 Log.Logger = new LoggerConfiguration()
