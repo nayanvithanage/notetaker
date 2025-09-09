@@ -179,7 +179,7 @@ export class SettingsComponent implements OnInit {
       
       const googleAuthUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' +
         'client_id=1010111570699-oi8seird36hgpr9je5986r5u9p8gc8c3.apps.googleusercontent.com&' +
-        'redirect_uri=http://localhost:5135/api/auth/google/callback&' +
+        'redirect_uri=https://notetaker-production-0954.up.railway.app/api/auth/google/callback&' +
         'response_type=code&' +
         'scope=openid email profile https://www.googleapis.com/auth/calendar.readonly&' +
         'access_type=offline&' +
